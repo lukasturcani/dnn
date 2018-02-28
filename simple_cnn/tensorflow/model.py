@@ -188,6 +188,7 @@ def main():
     parser.add_argument('--save_summary_steps', default=30, type=int)
     parser.add_argument('--keep_checkpoint_max', default=3, type=int)
     parser.add_argument('--save_checkpoints_steps', default=1000, type=int)
+    parser.add_argument('--save_checkpoints_secs', default=5, type=int)
     parser.add_argument('--training_batch_size', default=50, type=int)
     parser.add_argument('--eval_batch_size', default=100, type=int)
     parser.add_argument('--learning_rate', default=0.002, type=float)
@@ -240,9 +241,14 @@ def main():
                             input_fn=eval_input_fn,
                             steps=None,
                             hooks=[init_test_set],
-                            start_delay_secs=10,
-                            throttle_secs=10)
+                            start_delay_secs=params.save_checkpoints_secs,
+                            throttle_secs=params.save_checkpoints_secs)
 
+    estimator.train(input_fn=train_input_fn,
+                    hooks=[init_training_set],
+                    max_steps=1)
+    estimator.evaluate(input_fn=eval_input_fn,
+                       hooks=[init_test_set])
     tf.estimator.train_and_evaluate(estimator=estimator,
                                     train_spec=train_spec,
                                     eval_spec=eval_spec)
