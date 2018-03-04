@@ -94,7 +94,7 @@ def cnn(images, mode, params):
             prev_layer = tf.nn.relu(prev_layer)
 
             if params.dropout:
-                prev_layer = tf.layers.drouput(inputs=prev_layer,
+                prev_layer = tf.layers.dropout(inputs=prev_layer,
                                                rate=params.dropout,
                                                training=training)
 
