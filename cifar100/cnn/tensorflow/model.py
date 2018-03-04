@@ -80,23 +80,23 @@ def cnn(images, mode, params):
     pixels = np.prod(prev_layer.shape.as_list()[1:])
     prev_layer = tf.reshape(prev_layer, [-1, pixels])
     for i, size in enumerate(params.fc_layers):
-        prev_layer = tf.layers.dense(
+        with tf.variable_scope(f'fully_connected_{i}'):
+            prev_layer = tf.layers.dense(
                          inputs=prev_layer,
                          units=size,
-                         use_bias=False if params.batch_norm else True,
-                         name=f'fully_connected_{i}')
+                         use_bias=False if params.batch_norm else True)
 
-        if params.batch_norm:
-            prev_layer = tf.layers.batch_normalization(
+            if params.batch_norm:
+                prev_layer = tf.layers.batch_normalization(
                                                     inputs=prev_layer,
                                                     training=training)
 
-        prev_layer = tf.nn.relu(prev_layer)
+            prev_layer = tf.nn.relu(prev_layer)
 
-        if params.dropout:
-            prev_layer = tf.layers.drouput(inputs=prev_layer,
-                                           rate=params.dropout,
-                                           training=training)
+            if params.dropout:
+                prev_layer = tf.layers.drouput(inputs=prev_layer,
+                                               rate=params.dropout,
+                                               training=training)
 
     return tf.layers.dense(inputs=prev_layer,
                            units=20,
@@ -143,7 +143,7 @@ def main():
     parser.add_argument('--train_batch_size', default=32, type=int)
     parser.add_argument('--eval_batch_size', default=100, type=int)
     parser.add_argument('--model_dir', default='output')
-    parser.add_argument('--train_steps', default=10000, type=int)
+    parser.add_argument('--train_steps', default=1000000, type=int)
     parser.add_argument('--save_summary_steps', default=1000, type=int)
     parser.add_argument('--save_checkpoints_secs', default=60, type=int)
     parser.add_argument('--learning_rate', default=0.002, type=float)
@@ -195,6 +195,12 @@ def main():
                   hooks=[eval_init_hook],
                   start_delay_secs=params.save_checkpoints_secs,
                   throttle_secs=params.save_checkpoints_secs)
+
+    estimator.train(input_fn=train_input_fn,
+                    hooks=[train_init_hook],
+                    max_steps=1)
+    estimator.evaluate(input_fn=eval_input_fn,
+                       hooks=[eval_init_hook])
 
     tf.estimator.train_and_evaluate(estimator=estimator,
                                     train_spec=train_spec,
