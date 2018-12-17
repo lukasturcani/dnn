@@ -26,67 +26,67 @@ def train(args,
     generator.train()
     discriminator.train()
 
-    real_label = 1.
-    smooth_real_label = 1. - args.label_smoothing
-    fake_label = 0.
-    # criterion = nn.BCEWithLogitsLoss()
-
     for batch_id, (real_images, _) in enumerate(train_loader):
+        batch_size = real_images.size()[0]
+
         real_images = real_images.to('cuda')
         real_images = real_images.view(-1, 28*28)
-        batch_size = real_images.size()[0]
+
+        noise = torch.rand(batch_size,
+                           args.g_input_size,
+                           device='cuda')
+        fake_images = generator(noise)
 
         # Train the discriminator.
         d_optimizer.zero_grad()
-        noise = torch.rand(batch_size, args.g_input_size)
-        noise = noise.to('cuda')
-        fake_images = generator(noise).view_as(real_images)
 
-        real_output = discriminator(real_images).view(batch_size)
-        fake_output = discriminator(fake_images).view(batch_size)
+        real_output = discriminator(real_images)
+        fake_output = discriminator(fake_images)
 
-        real_target = torch.full((batch_size, ),
-                                 smooth_real_label,
+        real_target = torch.ones(batch_size,
+                                 dtype=torch.long,
                                  device='cuda')
-        # d_real_loss = criterion(real_output, real_target)
-        d_real_loss = F.nll_loss
 
-        fake_target = torch.full((batch_size, ),
-                                 fake_label,
-                                 device='cuda')
-        d_fake_loss = criterion(fake_output, fake_target)
+        d_real_loss = F.nll_loss(real_output, real_target)
+
+        fake_target = torch.zeros(batch_size,
+                                  dtype=torch.long,
+                                  device='cuda')
+
+        d_fake_loss = F.nll_loss(fake_output, fake_target)
 
         d_loss = d_real_loss + d_fake_loss
         d_loss.backward()
         d_optimizer.step()
 
         # Train the generator.
-        # g_optimizer.zero_grad()
-        # noise = torch.rand(batch_size, args.g_input_size)
-        # noise = noise.to('cuda')
-        #
-        # fake_images = generator(noise).view_as(real_images)
-        # fake_output = discriminator(fake_images).view(batch_size)
-        #
-        # fake_target = torch.full((batch_size, ),
-        #                          real_label,
-        #                          device='cuda')
-        # g_loss = criterion(fake_output, fake_target)
-        # g_loss.backward()
-        # g_optimizer.step()
-        #
-        # if batch_id % args.log_interval == 0:
-        #     msg = ('Train Epoch: {} [{}/{} ({:.0f}%)]\t'
-        #            'Discriminator Loss: {:.6f}\t'
-        #            'Generator Loss: {:.6f}')
-        #     msg = msg.format(
-        #         epoch,
-        #         batch_id * len(real_images),
-        #         len(train_loader.dataset),
-        #         100. * batch_id / len(train_loader),
-        #         d_loss.item(),
-        #         g_loss.item())
-        #     logger.info(msg)
+        g_optimizer.zero_grad()
+        noise = torch.rand(batch_size,
+                           args.g_input_size,
+                           device='cuda')
+
+        fake_images = generator(noise)
+        fake_output = discriminator(fake_images)
+
+        fake_target = torch.ones(batch_size,
+                                 dtype=torch.long,
+                                 device='cuda')
+        g_loss = F.nll_loss(fake_output, fake_target)
+        g_loss.backward()
+        g_optimizer.step()
+
+        if batch_id % args.log_interval == 0:
+            msg = ('Train Epoch: {} [{}/{} ({:.0f}%)]\t'
+                   'Discriminator Loss: {:.6f}\t'
+                   'Generator Loss: {:.6f}')
+            msg = msg.format(
+                epoch,
+                batch_id * len(real_images),
+                len(train_loader.dataset),
+                100. * batch_id / len(train_loader),
+                d_loss.item(),
+                g_loss.item())
+            logger.info(msg)
 
 
 def save_images(images, epoch, img_dir):
@@ -97,54 +97,46 @@ def save_images(images, epoch, img_dir):
 def test(args, generator, discriminator, test_loader, epoch):
     generator.eval()
     discriminator.eval()
-    test_d_loss = 0
     correct = 0
-    criterion = nn.BCEWithLogitsLoss()
-
-    smooth_real_label = 1. - args.label_smoothing
-    fake_label = 0.
 
     with torch.no_grad():
         for real_images, _ in test_loader:
-            real_images = real_images.to('cuda')
-            real_images = real_images.view(-1, 28*28)
             batch_size = real_images.size()[0]
 
-            real_output = discriminator(real_images).view(batch_size)
+            real_images = real_images.to('cuda')
+            real_images = real_images.view(batch_size, 28*28)
 
             noise = torch.rand(batch_size,
-                               args.g_input_size)
-            noise = noise.to('cuda')
-            fake_images = generator(noise).view_as(real_images)
-            fake_output = discriminator(fake_images).view(batch_size)
+                               args.g_input_size,
+                               device='cuda')
+            fake_images = generator(noise)
 
-            real_target = torch.full((batch_size, ),
-                                     smooth_real_label,
+            real_output = discriminator(real_images)
+            real_predictions = real_output.max(1, keepdim=True)[1]
+            real_target = torch.ones(batch_size,
+                                     dtype=torch.long,
                                      device='cuda')
-            d_real_loss = criterion(real_output, real_target)
+            real_target = real_target.view_as(real_predictions)
+            real_correct = real_predictions.eq(real_target).sum()
+            real_correct = real_correct.item()
 
-            fake_target = torch.full((batch_size, ),
-                                     fake_label,
-                                     device='cuda')
-            d_fake_loss = criterion(fake_output, fake_target)
+            fake_output = discriminator(fake_images)
+            fake_predictions = fake_output.max(1, keepdim=True)[1]
+            fake_target = torch.zeros(batch_size,
+                                      dtype=torch.long,
+                                      device='cuda')
+            fake_target = fake_target.view_as(fake_predictions)
+            fake_correct = fake_predictions.eq(fake_target).sum()
+            fake_correct = fake_correct.item()
 
-            test_d_loss += d_real_loss + d_fake_loss
+            correct += real_correct + fake_correct
+            print('real_correct', real_correct)
+            print('fake_correct', fake_correct)
+            print(real_output[:10])
+            print(fake_output[:10])
 
-            real_pred = real_output.round()
-            real_correct = real_pred.eq(torch.ones_like(real_pred))
-            correct += real_correct.sum().item()
-            print('real_correct', real_correct.sum().item())
-
-            fake_pred = fake_output.round()
-            fake_correct = fake_pred.eq(torch.zeros_like(fake_pred))
-            correct += fake_correct.sum().item()
-            print('fake_correct', fake_correct.sum().item())
-
-    test_d_loss /= len(test_loader.dataset)
-    msg = ('\nTest set: Average discriminator loss: {:.4f}, '
-           'Accuracy: {}/{} ({:.0f}%)\n')
-    msg = msg.format(test_d_loss,
-                     correct,
+    msg = ('\nTest set: Accuracy: {}/{} ({:.0f}%)\n')
+    msg = msg.format(correct,
                      2*len(test_loader.dataset),
                      100. * correct / (2*len(test_loader.dataset)))
     logger.info(msg)
@@ -160,7 +152,7 @@ def main():
     parser.add_argument('--train_batch_size', default=64, type=int)
     parser.add_argument('--test_batch_size', default=1000, type=int)
     parser.add_argument('--learning_rate', default=0.0002, type=float)
-    parser.add_argument('--epochs', default=10, type=int)
+    parser.add_argument('--epochs', default=30, type=int)
     parser.add_argument('--d_fc_layers',
                         default=[1024, 512, 256, 2],
                         type=int,

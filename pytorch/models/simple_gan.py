@@ -42,9 +42,10 @@ class Discriminator(nn.Module):
             layers.append(layer)
             in_features = out_features
 
-            if i != len(fc_layers) - 1:
-                activation = nn.LeakyReLU(lrelu_alpha)
-                activations.append(activation)
+            activation = (nn.LeakyReLU(lrelu_alpha) if
+                          i != len(fc_layers) - 1 else
+                          nn.LogSoftmax(dim=1))
+            activations.append(activation)
 
         self.fc_layers = nn.ModuleList(layers)
         self.activations = nn.ModuleList(activations)
@@ -52,8 +53,6 @@ class Discriminator(nn.Module):
     def forward(self, x):
         for i in range(len(self.fc_layers)):
             x = self.fc_layers[i](x)
-
-            if i < len(self.activations):
-                x = self.activations[i](x)
+            x = self.activations[i](x)
 
         return x
