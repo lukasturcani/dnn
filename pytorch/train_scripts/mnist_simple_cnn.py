@@ -162,7 +162,8 @@ def main():
                       pool_paddings=args.pool_paddings,
                       pool_dilations=args.pool_dilations,
                       fc_input_size=args.fc_input_size,
-                      fcs=args.fcs)
+                      fcs=args.fcs,
+                      final_activation=lambda x: F.log_softmax(x, 1))
 
     model.to('cuda')
     optimizer = optim.SGD(model.parameters(),

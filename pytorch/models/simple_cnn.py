@@ -24,6 +24,9 @@ class SimpleCNN(nn.Module):
     fc_input_size : :class:`int`
         The number of features to the first fully connected layer.
 
+    final_activation : :class:`function`
+        The activation function to be applied to the output layer.
+
     """
 
     def __init__(self,
@@ -38,7 +41,8 @@ class SimpleCNN(nn.Module):
                  pool_paddings,
                  pool_dilations,
                  fc_input_size,
-                 fcs):
+                 fcs,
+                 final_activation):
         """
         Initialize a SimpleCNN.
 
@@ -79,6 +83,9 @@ class SimpleCNN(nn.Module):
 
         fcs : :class:`list` of :class:`int`
             The number of neurons in each fully connected layer.
+
+        final_activation : :class:`function`
+            The activation function to be applied to the output layer.
 
         """
 
@@ -142,6 +149,7 @@ class SimpleCNN(nn.Module):
             fc_layers.append(layer)
             in_features = fc
         self.fcs = nn.ModuleList(fc_layers)
+        self.final_activation = final_activation
 
     def forward(self, x):
         for i in range(len(self.convs)):
@@ -152,7 +160,6 @@ class SimpleCNN(nn.Module):
 
         for i in range(len(self.fcs)):
             x = self.fcs[i](x)
-            if i != len(self.fcs) - 1:
-                x = F.relu(x)
-
-        return F.log_softmax(x, dim=1)
+            x = (F.relu(x) if i != len(self.fcs) - 1 else
+                 self.final_activation(x))
+        return x
