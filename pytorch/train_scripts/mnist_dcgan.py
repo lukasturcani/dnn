@@ -9,8 +9,7 @@ from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 from torchvision.utils import save_image
 
-from dnn_models.pytorch.models.simple_gan import (Generator,
-                                                  Discriminator)
+from dnn_models.pytorch.models.dcgan import Generator, Discriminator
 
 logger = logging.getLogger(__name__)
 
@@ -33,10 +32,10 @@ def train(args,
 
         # Reshape real images.
         real_images = real_images.to('cuda')
-        real_images = real_images.view(batch_size, 28*28)
 
         # Create fake images.
-        noise = torch.randn(batch_size, args.g_input_size, device='cuda')
+        noise = torch.randn(batch_size, args.g_input_channels[0], 1, 1,
+                            device='cuda')
         fake_images = generator(noise)
 
         ###############################################################
@@ -66,7 +65,8 @@ def train(args,
         ###############################################################
 
         g_optimizer.zero_grad()
-        noise = torch.randn(batch_size, args.g_input_size, device='cuda')
+        noise = torch.randn(batch_size, args.g_input_channels[0], 1, 1,
+                            device='cuda')
 
         fake_images = generator(noise)
         fake_logits = discriminator(fake_images)
@@ -104,15 +104,14 @@ def test(args, generator, discriminator, test_loader, epoch):
 
     with torch.no_grad():
         for real_images, _ in test_loader:
+            batch_real_correct = batch_fake_correct = 0
             batch_size = real_images.size()[0]
-            batch_fake_correct = batch_real_correct = 0
 
             real_images = real_images.to('cuda')
-            real_images = real_images.view(batch_size, 28*28)
 
-            noise = torch.randn(batch_size,
-                                args.g_input_size,
-                                device='cuda')
+            noise = torch.randn(
+                            batch_size, args.g_input_channels[0], 1, 1,
+                            device='cuda')
             fake_images = generator(noise)
 
             real_logits = discriminator(real_images)
@@ -140,8 +139,9 @@ def test(args, generator, discriminator, test_loader, epoch):
                      real_correct)
     logger.info(msg)
 
-    noise = torch.randn(20, args.g_input_size, device='cuda')
-    g_images = generator(noise).view(20, 1, 28, 28)
+    noise = torch.randn(20, args.g_input_channels[0], 1, 1,
+                        device='cuda')
+    g_images = generator(noise)
     save_images(g_images, epoch, args.img_dir)
 
 
@@ -152,18 +152,48 @@ def main():
     parser.add_argument('--test_batch_size', default=1000, type=int)
     parser.add_argument('--learning_rate', default=0.0002, type=float)
     parser.add_argument('--epochs', default=30, type=int)
-    parser.add_argument('--d_fc_layers',
-                        default=[1024, 512, 256, 1],
+    parser.add_argument('--d_input_channels',
+                        default=[1, 64, 128, 256, 512],
                         type=int,
                         nargs='+')
-    parser.add_argument('--g_input_size', default=100, type=int)
-    parser.add_argument('--g_fc_layers',
-                        default=[256, 512, 1024, 784],
-                        nargs='+',
-                        type=int)
+    parser.add_argument('--d_output_channels',
+                        default=[64, 128, 256, 512, 1],
+                        type=int,
+                        nargs='+')
+    parser.add_argument('--d_kernel_sizes',
+                        default=[4, 4, 4, 4, 4],
+                        type=int,
+                        nargs='+')
+    parser.add_argument('--d_strides',
+                        default=[2, 2, 2, 2, 1],
+                        type=int,
+                        nargs='+')
+    parser.add_argument('--d_paddings',
+                        default=[1, 1, 1, 1, 0],
+                        type=int,
+                        nargs='+')
+    parser.add_argument('--g_input_channels',
+                        default=[100, 64*8, 64*4, 64*2, 64],
+                        type=int,
+                        nargs='+')
+    parser.add_argument('--g_output_channels',
+                        default=[64*8, 64*4, 64*2, 64, 1],
+                        type=int,
+                        nargs='+')
+    parser.add_argument('--g_kernel_sizes',
+                        default=[4, 4, 4, 4, 4],
+                        type=int,
+                        nargs='+')
+    parser.add_argument('--g_strides',
+                        default=[1, 2, 2, 2, 2],
+                        type=int,
+                        nargs='+')
+    parser.add_argument('--g_paddings',
+                        default=[0, 1, 1, 1, 1],
+                        type=int,
+                        nargs='+')
     parser.add_argument('--lrelu_alpha', default=0.2, type=float)
-    parser.add_argument('--label_smoothing', default=0.3, type=float)
-    parser.add_argument('--momentum', default=0.5, type=float)
+    parser.add_argument('--label_smoothing', default=0, type=float)
     parser.add_argument('--logging_level',
                         default=logging.DEBUG,
                         type=int)
@@ -185,19 +215,25 @@ def main():
                         datefmt=date_fmt)
     torch.manual_seed(args.seed)
 
-    generator = Generator(
-                    input_size=args.g_input_size,
-                    fc_layers=args.g_fc_layers,
-                    lrelu_alpha=args.lrelu_alpha)
-    generator.to('cuda')
-
     discriminator = Discriminator(
-                        input_size=28*28,
-                        fc_layers=args.d_fc_layers,
+                        input_channels=args.d_input_channels,
+                        output_channels=args.d_output_channels,
+                        kernel_sizes=args.d_kernel_sizes,
+                        strides=args.d_strides,
+                        paddings=args.d_paddings,
                         lrelu_alpha=args.lrelu_alpha)
     discriminator.to('cuda')
 
+    generator = Generator(
+                    input_channels=args.g_input_channels,
+                    output_channels=args.g_output_channels,
+                    kernel_sizes=args.g_kernel_sizes,
+                    strides=args.g_strides,
+                    paddings=args.g_paddings)
+    generator.to('cuda')
+
     transform = transforms.Compose([
+        transforms.Resize(64),
         transforms.ToTensor()
     ])
 
