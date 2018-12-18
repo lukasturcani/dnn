@@ -25,53 +25,56 @@ def train(args,
 
     generator.train()
     discriminator.train()
+    criterion = nn.BCEWithLogitsLoss()
 
     for batch_id, (real_images, _) in enumerate(train_loader):
+        real_images = (real_images - 0.5) / 0.5
         batch_size = real_images.size()[0]
 
+        # Reshape real images.
         real_images = real_images.to('cuda')
-        real_images = real_images.view(-1, 28*28)
+        real_images = real_images.view(batch_size, 28*28)
 
-        noise = torch.rand(batch_size,
-                           args.g_input_size,
-                           device='cuda')
+        # Create fake images.
+        noise = torch.randn(batch_size, args.g_input_size, device='cuda')
         fake_images = generator(noise)
 
+        ###############################################################
         # Train the discriminator.
+        ###############################################################
+
         d_optimizer.zero_grad()
 
-        real_output = discriminator(real_images)
-        fake_output = discriminator(fake_images)
+        real_logits = discriminator(real_images)
+        fake_logits = discriminator(fake_images)
 
-        real_target = torch.ones(batch_size,
-                                 dtype=torch.long,
-                                 device='cuda')
+        real_target = torch.ones(batch_size, device='cuda')
+        real_target -= args.label_smoothing
+        real_target = real_target.view_as(real_logits)
+        d_real_loss = criterion(real_logits, real_target)
 
-        d_real_loss = F.nll_loss(real_output, real_target)
-
-        fake_target = torch.zeros(batch_size,
-                                  dtype=torch.long,
-                                  device='cuda')
-
-        d_fake_loss = F.nll_loss(fake_output, fake_target)
+        fake_target = torch.zeros(batch_size, device='cuda')
+        fake_target = fake_target.view_as(fake_logits)
+        d_fake_loss = criterion(fake_logits, fake_target)
 
         d_loss = d_real_loss + d_fake_loss
         d_loss.backward()
         d_optimizer.step()
 
+        ###############################################################
         # Train the generator.
+        ###############################################################
+
         g_optimizer.zero_grad()
-        noise = torch.rand(batch_size,
-                           args.g_input_size,
-                           device='cuda')
+        noise = torch.randn(batch_size, args.g_input_size, device='cuda')
 
         fake_images = generator(noise)
-        fake_output = discriminator(fake_images)
+        fake_logits = discriminator(fake_images)
 
-        fake_target = torch.ones(batch_size,
-                                 dtype=torch.long,
-                                 device='cuda')
-        g_loss = F.nll_loss(fake_output, fake_target)
+        fake_target = torch.ones(batch_size, device='cuda')
+        fake_target = fake_target.view_as(fake_logits)
+        g_loss = criterion(fake_logits, fake_target)
+
         g_loss.backward()
         g_optimizer.step()
 
@@ -97,7 +100,7 @@ def save_images(images, epoch, img_dir):
 def test(args, generator, discriminator, test_loader, epoch):
     generator.eval()
     discriminator.eval()
-    correct = 0
+    correct = fake_correect = real_correct = 0
 
     with torch.no_grad():
         for real_images, _ in test_loader:
@@ -106,55 +109,50 @@ def test(args, generator, discriminator, test_loader, epoch):
             real_images = real_images.to('cuda')
             real_images = real_images.view(batch_size, 28*28)
 
-            noise = torch.rand(batch_size,
-                               args.g_input_size,
-                               device='cuda')
+            noise = torch.randn(batch_size,
+                                args.g_input_size,
+                                device='cuda')
             fake_images = generator(noise)
 
-            real_output = discriminator(real_images)
-            real_predictions = real_output.max(1, keepdim=True)[1]
-            real_target = torch.ones(batch_size,
-                                     dtype=torch.long,
-                                     device='cuda')
+            real_logits = discriminator(real_images)
+            real_predictions = F.sigmoid(real_logits).round()
+            real_target = torch.ones(batch_size, device='cuda')
             real_target = real_target.view_as(real_predictions)
             real_correct = real_predictions.eq(real_target).sum()
-            real_correct = real_correct.item()
+            real_correct += real_correct.item()
 
-            fake_output = discriminator(fake_images)
-            fake_predictions = fake_output.max(1, keepdim=True)[1]
-            fake_target = torch.zeros(batch_size,
-                                      dtype=torch.long,
-                                      device='cuda')
+            fake_logits = discriminator(fake_images)
+            fake_predictions = F.sigmoid(fake_logits).round()
+            fake_target = torch.zeros(batch_size, device='cuda')
             fake_target = fake_target.view_as(fake_predictions)
             fake_correct = fake_predictions.eq(fake_target).sum()
-            fake_correct = fake_correct.item()
+            fake_correct += fake_correct.item()
 
             correct += real_correct + fake_correct
-            print('real_correct', real_correct)
-            print('fake_correct', fake_correct)
-            print(real_output[:10])
-            print(fake_output[:10])
 
-    msg = ('\nTest set: Accuracy: {}/{} ({:.0f}%)\n')
+    msg = ('\nTest set: Accuracy: {}/{} ({:.0f}%)'
+           '\tFake correct: {}\tReal correct: {}\n')
     msg = msg.format(correct,
                      2*len(test_loader.dataset),
-                     100. * correct / (2*len(test_loader.dataset)))
+                     100. * correct / (2*len(test_loader.dataset)),
+                     fake_correct,
+                     real_correct)
     logger.info(msg)
 
-    noise = torch.rand(20, args.g_input_size).to('cuda')
+    noise = torch.randn(20, args.g_input_size, device='cuda')
     g_images = generator(noise).view(20, 1, 28, 28)
     save_images(g_images, epoch, args.img_dir)
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--seed', default=4, type=int)
-    parser.add_argument('--train_batch_size', default=64, type=int)
+    parser.add_argument('--seed', default=42, type=int)
+    parser.add_argument('--train_batch_size', default=100, type=int)
     parser.add_argument('--test_batch_size', default=1000, type=int)
     parser.add_argument('--learning_rate', default=0.0002, type=float)
     parser.add_argument('--epochs', default=30, type=int)
     parser.add_argument('--d_fc_layers',
-                        default=[1024, 512, 256, 2],
+                        default=[1024, 512, 256, 1],
                         type=int,
                         nargs='+')
     parser.add_argument('--g_input_size', default=100, type=int)
@@ -199,8 +197,7 @@ def main():
     discriminator.to('cuda')
 
     transform = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize((0.1307,), (0.3081,))
+        transforms.ToTensor()
     ])
 
     train_mnist = datasets.MNIST(root=args.database_root,
