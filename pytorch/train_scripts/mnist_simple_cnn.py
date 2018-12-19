@@ -6,7 +6,7 @@ from torch import optim
 from torchvision import transforms, datasets
 from torch.utils.data import DataLoader
 
-from dnn_models.pytorch.models.simple_cnn import SimpleCNN
+from dnn.pytorch.models.simple_cnn import SimpleCNN
 
 
 logger = logging.getLogger(__name__)

@@ -3,13 +3,12 @@ import argparse
 import os
 import shutil
 import torch
-import torch.nn.functional as F
 from torch import optim, nn
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 from torchvision.utils import save_image
 
-from dnn_models.pytorch.models.dcgan import Generator, Discriminator
+from dnn.pytorch.models.dcgan import Generator, Discriminator
 
 logger = logging.getLogger(__name__)
 
@@ -115,20 +114,20 @@ def test(args, generator, discriminator, test_loader, epoch):
             fake_images = generator(noise)
 
             real_logits = discriminator(real_images)
-            real_predictions = F.sigmoid(real_logits).round()
+            real_predictions = torch.sigmoid(real_logits).round()
             real_target = torch.ones(batch_size, device='cuda')
             real_target = real_target.view_as(real_predictions)
             batch_real_correct = real_predictions.eq(real_target).sum()
             real_correct += batch_real_correct.item()
 
             fake_logits = discriminator(fake_images)
-            fake_predictions = F.sigmoid(fake_logits).round()
+            fake_predictions = torch.sigmoid(fake_logits).round()
             fake_target = torch.zeros(batch_size, device='cuda')
             fake_target = fake_target.view_as(fake_predictions)
             batch_fake_correct = fake_predictions.eq(fake_target).sum()
             fake_correct += batch_fake_correct.item()
 
-            correct += real_correct + fake_correct
+    correct = real_correct + fake_correct
 
     msg = ('\nTest set: Accuracy: {}/{} ({:.0f}%)'
            '\tFake correct: {}\tReal correct: {}\n')
@@ -142,7 +141,7 @@ def test(args, generator, discriminator, test_loader, epoch):
     noise = torch.randn(20, args.g_input_channels[0], 1, 1,
                         device='cuda')
     g_images = generator(noise)
-    save_images(g_images, epoch, args.img_dir)
+    save_images(g_images*0.5 + 0.5, epoch, args.img_dir)
 
 
 def main():
