@@ -229,6 +229,8 @@ def main():
             gan.grow()
             gan.discriminator.to('cuda')
             gan.generator.to('cuda')
+            logging.debug(gan.generator)
+            logging.debug(gan.discriminator)
 
             transform = transforms.Compose([
                 transforms.Resize(size),

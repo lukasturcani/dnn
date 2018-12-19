@@ -29,6 +29,11 @@ class GrowingGan:
                 bias=False)
         self.generator.add_module(f'conv_{self.phase}', conv)
 
+        num_features = self.args.g_output_channels[self.phase]
+        batch_norm = nn.BatchNorm2d(num_features=num_features)
+        name = f'batch_norm_{self.phase}'
+        self.generator.add_module(name, batch_norm)
+
         activation = nn.LeakyReLU(self.args.lrelu_alpha)
         name = f'activation_{self.phase}'
         self.generator.add_module(name, activation)
@@ -57,6 +62,12 @@ class GrowingGan:
                     padding=self.args.d_paddings[self.phase],
                     bias=False)
         self.discriminator.add_module(f'conv_{self.phase}', conv)
+
+        if self.phase:
+            num_features = self.args.d_output_channels[self.phase]
+            batch_norm = nn.BatchNorm2d(num_features=num_features)
+            name = f'batch_norm_{self.phase}'
+            self.discriminator.add_module(name, batch_norm)
 
         activation = nn.LeakyReLU(self.args.lrelu_alpha)
         name = f'activation_{self.phase}'
