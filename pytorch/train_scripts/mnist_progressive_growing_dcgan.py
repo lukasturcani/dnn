@@ -88,6 +88,8 @@ def train(args,
                 d_loss.item(),
                 g_loss.item())
             logger.info(msg)
+    generator.fade_alpha += 0.3
+    discriminator.fade_alpha += 0.3
 
 
 def test(args, generator, discriminator, test_loader, epoch):
