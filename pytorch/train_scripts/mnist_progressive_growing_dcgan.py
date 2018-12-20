@@ -88,8 +88,8 @@ def train(args,
                 d_loss.item(),
                 g_loss.item())
             logger.info(msg)
-    generator.fade_alpha += 0.3
-    discriminator.fade_alpha += 0.3
+    generator.fade_alpha += 0.1
+    discriminator.fade_alpha += 0.1
 
 
 def test(args, generator, discriminator, test_loader, epoch):
@@ -216,10 +216,10 @@ def main():
 
     gan = GrowingGan(args=args)
 
-    sizes = [4, 4, 4, 4,
-             8, 8, 8, 8, 8, 8,
-             16, 16, 16, 16, 16, 16, 16,
-             32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32]
+    sizes = [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
+             8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+             16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
+             32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32]
 
     previous_size = None
     for epoch in range(1, args.epochs + 1):
