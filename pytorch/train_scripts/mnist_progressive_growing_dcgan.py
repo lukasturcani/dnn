@@ -19,12 +19,14 @@ def train(args,
           g_optimizer,
           d_optimizer,
           train_loader,
-          epoch):
+          epoch,
+          d_steps):
 
     generator.train()
     discriminator.train()
     criterion = nn.BCEWithLogitsLoss()
 
+    d_steps_done = 0
     for batch_id, (real_images, _) in enumerate(train_loader):
         real_images = (real_images - 0.5) / 0.5
         batch_size = real_images.size()[0]
@@ -57,6 +59,11 @@ def train(args,
         d_loss = d_real_loss + d_fake_loss
         d_loss.backward()
         d_optimizer.step()
+
+        d_steps_done += 1
+        if d_steps_done < d_steps:
+            continue
+        d_steps_done = 0
 
         ###############################################################
         # Train the generator.
@@ -214,24 +221,27 @@ def main():
     gan = GrowingGan(args=args)
 
     epoch_params = [
-             (4, 1),
-             (8, 0.5), (8, 0.5),
-             (16, 0.5), (16, 0.5), (16, 0), (16, 0), (16, 0),
-             (32, 0.2), (32, 0), (32, 0), (32, 0.2), (32, 0),
-             (32, 0.2), (32, 0), (32, 0), (32, 0.2), (32, 0),
-             (32, 0), (32, 0.2), (32, 0), (32, 0),
+             (4, 1, 1),
+             (8, 0.5, 1), (8, 0.5, 1),
+             (16, 0.5, 1), (16, 0.5, 1),
+             (16, 0, 1), (16, 0, 1), (16, 0, 1),
+             (32, 0.2, 3), (32, 0, 3), (32, 0, 3),
+             (32, 0.2, 3), (32, 0, 3), (32, 0.2, 3),
+             (32, 0, 3), (32, 0, 3), (32, 0.2, 3), (32, 0, 3),
+             (32, 0, 1), (32, 0.2, 1), (32, 0, 1), (32, 0, 1),
 
-             (64, 0.2), (64, 0), (64, 0),
-             (64, 0.2), (64, 0), (64, 0),
-             (64, 0.2), (64, 0), (64, 0),
-             (64, 0.2), (64, 0), (64, 0),
-             (64, 0.2), (64, 0), (64, 0),
-             (64, 0), (64, 0), (64, 0),
-             (64, 0), (64, 0), (64, 0),
-             (64, 0), (64, 0), (64, 0)]
+             (64, 0.2, 3), (64, 0, 3), (64, 0, 3),
+             (64, 0.2, 3), (64, 0, 3), (64, 0, 3),
+             (64, 0.2, 3), (64, 0, 3), (64, 0, 3),
+             (64, 0.2, 1), (64, 0, 1), (64, 0, 1),
+             (64, 0.2, 1), (64, 0, 1), (64, 0, 1),
+             (64, 0, 1), (64, 0, 1), (64, 0, 1),
+             (64, 0, 1), (64, 0, 1), (64, 0, 1),
+             (64, 0, 1), (64, 0, 1), (64, 0, 1)]
 
     previous_size = None
-    for epoch, (img_size, fade_alpha) in enumerate(epoch_params, 1):
+    for epoch, e_params in enumerate(epoch_params, 1):
+        img_size, fade_alpha, d_steps = e_params
 
         if img_size != previous_size:
             previous_size = img_size
@@ -290,7 +300,8 @@ def main():
               g_optimizer=g_optimizer,
               d_optimizer=d_optimizer,
               train_loader=train_loader,
-              epoch=epoch)
+              epoch=epoch,
+              d_steps=d_steps)
 
         test(args=args,
              generator=gan.generator,
