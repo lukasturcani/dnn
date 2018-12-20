@@ -148,7 +148,7 @@ def main():
     parser.add_argument('--train_batch_size', default=100, type=int)
     parser.add_argument('--test_batch_size', default=1000, type=int)
     parser.add_argument('--learning_rate', default=0.0002, type=float)
-    parser.add_argument('--epochs', default=30, type=int)
+    parser.add_argument('--epochs', default=100, type=int)
     parser.add_argument('--image_channels', default=1, type=int)
     parser.add_argument('--d_input_channels',
                         default=[1, 64, 128, 256, 512],
