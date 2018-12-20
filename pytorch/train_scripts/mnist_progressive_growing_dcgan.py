@@ -88,8 +88,6 @@ def train(args,
                 d_loss.item(),
                 g_loss.item())
             logger.info(msg)
-    generator.fade_alpha += 0.1
-    discriminator.fade_alpha += 0.1
 
 
 def test(args, generator, discriminator, test_loader, epoch):
@@ -148,7 +146,6 @@ def main():
     parser.add_argument('--train_batch_size', default=100, type=int)
     parser.add_argument('--test_batch_size', default=1000, type=int)
     parser.add_argument('--learning_rate', default=0.0002, type=float)
-    parser.add_argument('--epochs', default=100, type=int)
     parser.add_argument('--image_channels', default=1, type=int)
     parser.add_argument('--d_input_channels',
                         default=[1, 64, 128, 256, 512],
@@ -216,18 +213,28 @@ def main():
 
     gan = GrowingGan(args=args)
 
-    sizes = [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
-             8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
-             16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
-             32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32]
+    epoch_params = [
+             (4, 1),
+             (8, 0.5), (8, 0.5),
+             (16, 0.5), (16, 0.5), (16, 0), (16, 0), (16, 0),
+             (32, 0.2), (32, 0), (32, 0), (32, 0.2), (32, 0),
+             (32, 0.2), (32, 0), (32, 0), (32, 0.2), (32, 0),
+             (32, 0), (32, 0.2), (32, 0), (32, 0),
+
+             (64, 0.2), (64, 0), (64, 0),
+             (64, 0.2), (64, 0), (64, 0),
+             (64, 0.2), (64, 0), (64, 0),
+             (64, 0.2), (64, 0), (64, 0),
+             (64, 0.2), (64, 0), (64, 0),
+             (64, 0), (64, 0), (64, 0),
+             (64, 0), (64, 0), (64, 0),
+             (64, 0), (64, 0), (64, 0)]
 
     previous_size = None
-    for epoch in range(1, args.epochs + 1):
+    for epoch, (img_size, fade_alpha) in enumerate(epoch_params, 1):
 
-        size = sizes[epoch-1] if epoch-1 < len(sizes) else 64
-
-        if size != previous_size:
-            previous_size = size
+        if img_size != previous_size:
+            previous_size = img_size
             gan.grow()
             gan.discriminator.to('cuda')
             gan.generator.to('cuda')
@@ -235,7 +242,7 @@ def main():
             logging.debug(gan.discriminator)
 
             transform = transforms.Compose([
-                transforms.Resize(size),
+                transforms.Resize(img_size),
                 transforms.ToTensor()
             ])
 
@@ -266,6 +273,9 @@ def main():
             save_image(next(iter(test_loader))[0][:20],
                        os.path.join(args.img_dir,
                                     f'epoch_{epoch}_real.png'))
+
+        gan.discriminator.fade_alpha += fade_alpha
+        gan.generator.fade_alpha += fade_alpha
 
         g_optimizer = optim.Adam(gan.generator.parameters(),
                                  lr=args.learning_rate,
