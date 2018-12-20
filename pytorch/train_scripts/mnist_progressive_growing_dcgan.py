@@ -4,6 +4,7 @@ import os
 import shutil
 import torch
 from torch import optim, nn
+import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 from torchvision.utils import save_image
@@ -20,7 +21,8 @@ def train(args,
           d_optimizer,
           train_loader,
           epoch,
-          d_steps):
+          d_steps,
+          fade_alpha):
 
     generator.train()
     discriminator.train()
@@ -33,19 +35,23 @@ def train(args,
 
         # Reshape real images.
         real_images = real_images.to('cuda')
+        prev_real_images = F.interpolate(real_images, scale_factor=0.5)
 
         # Create fake images.
         noise = torch.randn(batch_size, args.g_input_channels[0], 1, 1,
                             device='cuda')
-        fake_images = generator(noise)
+        prev_fake_images, fake_images = generator(noise)
 
         ###############################################################
         # Train the discriminator.
         ###############################################################
 
         d_optimizer.zero_grad()
-        real_logits = discriminator(real_images)
-        fake_logits = discriminator(fake_images)
+
+        prev_real_logits, real_logits = discriminator(prev_real_images,
+                                                      real_images)
+        prev_fake_logits, fake_logits = discriminator(prev_fake_images,
+                                                      fake_images)
 
         real_target = torch.ones(batch_size, device='cuda')
         real_target -= args.label_smoothing
@@ -57,6 +63,13 @@ def train(args,
         d_fake_loss = criterion(fake_logits, fake_target)
 
         d_loss = d_real_loss + d_fake_loss
+
+        if prev_real_logits is not None:
+            d_prev_real_loss = criterion(prev_real_logits, real_target)
+            d_prev_fake_loss = criterion(prev_fake_logits, fake_target)
+            d_prev_loss = d_prev_real_loss + d_prev_fake_loss
+            d_loss = fade_alpha*d_loss + (1-fade_alpha)*d_prev_loss
+
         d_loss.backward()
         d_optimizer.step()
 
@@ -73,12 +86,17 @@ def train(args,
         noise = torch.randn(batch_size, args.g_input_channels[0], 1, 1,
                             device='cuda')
 
-        fake_images = generator(noise)
-        fake_logits = discriminator(fake_images)
+        prev_fake_images, fake_images = generator(noise)
+        prev_fake_logits, fake_logits = discriminator(prev_fake_images,
+                                                      fake_images)
 
         fake_target = torch.ones(batch_size, device='cuda')
         fake_target = fake_target.view_as(fake_logits)
         g_loss = criterion(fake_logits, fake_target)
+
+        if prev_fake_logits is not None:
+            prev_g_loss = criterion(prev_fake_logits, fake_target)
+            g_loss = fade_alpha*g_loss + (1-fade_alpha)*prev_g_loss
 
         g_loss.backward()
         g_optimizer.step()
@@ -108,20 +126,26 @@ def test(args, generator, discriminator, test_loader, epoch):
             batch_size = real_images.size()[0]
 
             real_images = real_images.to('cuda')
+            prev_real_images = F.interpolate(real_images,
+                                             scale_factor=0.5)
 
             noise = torch.randn(
                             batch_size, args.g_input_channels[0], 1, 1,
                             device='cuda')
-            fake_images = generator(noise)
+            prev_fake_images, fake_images = generator(noise)
 
-            real_logits = discriminator(real_images)
+            prev_real_logits, real_logits = discriminator(
+                                                prev_real_images,
+                                                real_images)
             real_predictions = torch.sigmoid(real_logits).round()
             real_target = torch.ones(batch_size, device='cuda')
             real_target = real_target.view_as(real_predictions)
             batch_real_correct = real_predictions.eq(real_target).sum()
             real_correct += batch_real_correct.item()
 
-            fake_logits = discriminator(fake_images)
+            prev_fake_logits, fake_logits = discriminator(
+                                                    prev_fake_images,
+                                                    fake_images)
             fake_predictions = torch.sigmoid(fake_logits).round()
             fake_target = torch.zeros(batch_size, device='cuda')
             fake_target = fake_target.view_as(fake_predictions)
@@ -141,7 +165,7 @@ def test(args, generator, discriminator, test_loader, epoch):
 
     noise = torch.randn(20, args.g_input_channels[0], 1, 1,
                         device='cuda')
-    g_images = generator(noise)
+    prev_g_images, g_images = generator(noise)
     save_image(g_images*0.5 + 0.5,
                os.path.join(args.img_dir,
                             f'epoch_{epoch}_generated.png'))
@@ -221,23 +245,58 @@ def main():
     gan = GrowingGan(args=args)
 
     epoch_params = [
-             (4, 1, 1),
-             (8, 0.5, 1), (8, 0.5, 1),
-             (16, 0.5, 1), (16, 0.5, 1),
-             (16, 0, 1), (16, 0, 1), (16, 0, 1),
-             (32, 0.2, 3), (32, 0, 3), (32, 0, 3),
-             (32, 0.2, 3), (32, 0, 3), (32, 0.2, 3),
-             (32, 0, 3), (32, 0, 3), (32, 0.2, 3), (32, 0, 3),
-             (32, 0, 1), (32, 0.2, 1), (32, 0, 1), (32, 0, 1),
+             (4, 1.0, 1),
 
-             (64, 0.2, 3), (64, 0, 3), (64, 0, 3),
-             (64, 0.2, 3), (64, 0, 3), (64, 0, 3),
-             (64, 0.2, 3), (64, 0, 3), (64, 0, 3),
-             (64, 0.2, 1), (64, 0, 1), (64, 0, 1),
-             (64, 0.2, 1), (64, 0, 1), (64, 0, 1),
-             (64, 0, 1), (64, 0, 1), (64, 0, 1),
-             (64, 0, 1), (64, 0, 1), (64, 0, 1),
-             (64, 0, 1), (64, 0, 1), (64, 0, 1)]
+             (8, 0.5, 1),
+             (8, 1.0, 1),
+
+             (16, 0.5, 1),
+             (16, 1.0, 1),
+             (16, 1.0, 1),
+             (16, 1.0, 1),
+             (16, 1.0, 1),
+
+             (32, 0.2, 1),
+             (32, 0.2, 1),
+             (32, 0.2, 1),
+             (32, 0.4, 1),
+             (32, 0.4, 1),
+             (32, 0.4, 1),
+             (32, 0.6, 1),
+             (32, 0.6, 1),
+             (32, 0.6, 1),
+             (32, 0.8, 1),
+             (32, 0.8, 1),
+             (32, 0.8, 1),
+             (32, 1.0, 1),
+             (32, 1.0, 1),
+             (32, 1.0, 1),
+             (32, 1.0, 1),
+
+             (64, 0.2, 1),
+             (64, 0.2, 1),
+             (64, 0.2, 1),
+             (64, 0.2, 1),
+             (64, 0.4, 1),
+             (64, 0.4, 1),
+             (64, 0.4, 1),
+             (64, 0.4, 1),
+             (64, 0.6, 1),
+             (64, 0.6, 1),
+             (64, 0.6, 1),
+             (64, 0.6, 1),
+             (64, 0.8, 1),
+             (64, 0.8, 1),
+             (64, 0.8, 1),
+             (64, 0.8, 1),
+             (64, 1.0, 1),
+             (64, 1.0, 1),
+             (64, 1.0, 1),
+             (64, 1.0, 1),
+             (64, 1.0, 1),
+             (64, 1.0, 1),
+             (64, 1.0, 1),
+             (64, 1.0, 1)]
 
     previous_size = None
     for epoch, e_params in enumerate(epoch_params, 1):
@@ -284,9 +343,6 @@ def main():
                        os.path.join(args.img_dir,
                                     f'epoch_{epoch}_real.png'))
 
-        gan.discriminator.fade_alpha += fade_alpha
-        gan.generator.fade_alpha += fade_alpha
-
         g_optimizer = optim.Adam(gan.generator.parameters(),
                                  lr=args.learning_rate,
                                  betas=(0.5, 0.999))
@@ -301,7 +357,8 @@ def main():
               d_optimizer=d_optimizer,
               train_loader=train_loader,
               epoch=epoch,
-              d_steps=d_steps)
+              d_steps=d_steps,
+              fade_alpha=fade_alpha)
 
         test(args=args,
              generator=gan.generator,

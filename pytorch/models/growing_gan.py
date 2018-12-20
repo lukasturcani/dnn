@@ -1,5 +1,4 @@
 from torch import nn
-import torch.nn.functional as F
 
 
 class Generator(nn.Module):
@@ -44,10 +43,9 @@ class Generator(nn.Module):
         self.final_activation = nn.Tanh()
 
     def grow(self):
-        self.fade_alpha = 0
         self.phase += 1
         if self.phase > 1:
-            self.fade_final_conv = self.final_conv
+            self.prev_final_conv = self.final_conv
         self.final_conv = nn.Conv2d(
                     in_channels=self.convs[self.phase-1].out_channels,
                     out_channels=self.image_channels,
@@ -56,7 +54,10 @@ class Generator(nn.Module):
                     padding=0,
                     bias=False)
 
-    def fade_forward(self, x):
+    def prev_forward(self, x):
+        if self.phase == 1:
+            return None
+
         for i in range(self.phase-1):
             x = self.convs[i](x)
 
@@ -65,12 +66,11 @@ class Generator(nn.Module):
 
             x = self.activations[i](x)
 
-        x = self.fade_final_conv(x)
-        x = self.final_activation(x)
-        return F.interpolate(x, scale_factor=2)
+        x = self.prev_final_conv(x)
+        return self.final_activation(x)
 
     def forward(self, x):
-        inp = x
+        prev_x = self.prev_forward(x)
         for i in range(self.phase):
             x = self.convs[i](x)
 
@@ -82,11 +82,7 @@ class Generator(nn.Module):
         x = self.final_conv(x)
         x = self.final_activation(x)
 
-        if self.fade_alpha < 1 and self.phase > 1:
-            y = self.fade_forward(inp)
-            return self.fade_alpha*x + (1-self.fade_alpha)*y
-        else:
-            return x
+        return prev_x, x
 
 
 class Discriminator(nn.Module):
@@ -132,10 +128,9 @@ class Discriminator(nn.Module):
                 self.batch_norms.append(batch_norm)
 
     def grow(self):
-        self.fade_alpha = 0
         self.phase += 1
         if self.phase > 1:
-            self.fade_final_conv = self.final_conv
+            self.prev_final_conv = self.final_conv
         self.final_conv = nn.Conv2d(
                     in_channels=self.convs[self.phase-1].out_channels,
                     out_channels=self.image_channels,
@@ -144,8 +139,9 @@ class Discriminator(nn.Module):
                     padding=0,
                     bias=False)
 
-    def fade_forward(self, x):
-        x = F.interpolate(x, scale_factor=0.5)
+    def prev_forward(self, x):
+        if self.phase == 1:
+            return None
 
         for i in range(self.phase-1):
             x = self.convs[i](x)
@@ -155,10 +151,11 @@ class Discriminator(nn.Module):
 
             x = self.activations[i](x)
 
-        return self.fade_final_conv(x)
+        return self.prev_final_conv(x)
 
-    def forward(self, x):
-        inp = x
+    def forward(self, prev_x, x):
+        prev_x = self.prev_forward(prev_x)
+
         for i in range(self.phase):
             x = self.convs[i](x)
 
@@ -167,13 +164,7 @@ class Discriminator(nn.Module):
 
             x = self.activations[i](x)
 
-        x = self.final_conv(x)
-
-        if self.fade_alpha < 1 and self.phase > 1:
-            y = self.fade_forward(inp)
-            return self.fade_alpha*x + (1-self.fade_alpha)*y
-        else:
-            return x
+        return prev_x, self.final_conv(x)
 
 
 class GrowingGan:
