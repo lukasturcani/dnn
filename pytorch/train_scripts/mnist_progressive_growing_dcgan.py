@@ -154,7 +154,7 @@ def test(args, generator, discriminator, test_loader, epoch):
 
     correct = real_correct + fake_correct
 
-    msg = ('\nTest set: Accuracy: {}/{} ({:.0f}%)'
+    msg = ('Test set: Accuracy: {}/{} ({:.0f}%)'
            '\tFake correct: {}\tReal correct: {}\n')
     msg = msg.format(correct,
                      2*len(test_loader.dataset),
