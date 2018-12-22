@@ -149,7 +149,8 @@ def test(args, generator, discriminator, test_loader, epoch):
                         device='cuda')
     g_images = generator(noise)
     save_image(g_images*0.5 + 0.5,
-               os.path.join(args.img_dir,
+               os.path.join(args.output_dir,
+                            'images',
                             f'epoch_{epoch}_generated.png'))
 
 
@@ -174,12 +175,14 @@ def main():
     parser.add_argument('--log_interval', default=150, type=int)
     parser.add_argument('--database_root',
                         default='/home/lukas/databases')
-    parser.add_argument('--img_dir', default='generated_images')
+    parser.add_argument('--output_dir', default='output')
     args = parser.parse_args()
 
-    if os.path.exists(args.img_dir):
-        shutil.rmtree(args.img_dir)
-    os.mkdir(args.img_dir)
+    if os.path.exists(args.output_dir):
+        shutil.rmtree(args.output_dir)
+    os.mkdir(args.output_dir)
+    os.mkdir(os.path.join(args.output_dir, 'images'))
+    os.mkdir(os.path.join(args.output_dir, 'models'))
 
     log_fmt = '%(asctime)s - %(levelname)s - %(module)s - %(msg)s'
     date_fmt = '%d-%m-%Y %H:%M:%S'
@@ -204,8 +207,8 @@ def main():
         [(64, 3), (64, 3)]
     ]
 
-    grow_epochs = {1, 10, 30, 50, 60}
-    epoch_fade = 0.1
+    grow_epochs = {1, 5, 15, 25, 35}
+    epoch_fade = 0.2
 
     generator = Generator(
                      init_img_size=args.init_img_size,
@@ -229,6 +232,12 @@ def main():
                 generator.fade_alpha = 0
                 discriminator.fade_alpha = 0
 
+            torch.save(
+                generator,
+                os.path.join(args.output_dir, 'models', f'g_{epoch}'))
+            torch.save(
+                discriminator,
+                os.path.join(args.output_dir, 'models', f'd_{epoch}'))
             generator.grow(generator_blocks[block])
             discriminator.grow(discriminator_blocks[block])
             discriminator.to('cuda')
@@ -276,7 +285,8 @@ def main():
                             pin_memory=True)
 
             save_image(next(iter(test_loader))[0][:20],
-                       os.path.join(args.img_dir,
+                       os.path.join(args.output_dir,
+                                    'images',
                                     f'epoch_{epoch}_real.png'))
 
             img_size *= 2
