@@ -23,6 +23,8 @@ class Generator(nn.Module):
                  latent_space_channels,
                  lrelu_alpha):
         super().__init__()
+        self.fading = False
+        self.fade_alpha = 0
         self.img_size = init_img_size
         self.img_channels = img_channels
         self.in_channels = latent_space_channels
@@ -51,6 +53,9 @@ class Generator(nn.Module):
 
         self.blocks.append(nn.Sequential(*block))
 
+        if len(self.blocks) > 1:
+            self.prev_to_rgb = self.to_rgb
+
         self.to_rgb = nn.Conv2d(
                         in_channels=out_channels,
                         out_channels=self.img_channels,
@@ -65,6 +70,16 @@ class Generator(nn.Module):
             if i != 0:
                 x = F.interpolate(x, scale_factor=2)
             x = block(x)
+
+            if self.fading and i == len(self.blocks)-2:
+                prev_x = F.interpolate(x, scale_factor=2)
+                prev_img = self.prev_to_rgb(prev_x)
+
+        if self.fading:
+            prev = (1-self.fade_alpha)*prev_img
+            current = self.fade_alpha*self.to_rgb(x)
+            return prev + current
+
         return self.to_rgb(x)
 
 
@@ -74,12 +89,16 @@ class Discriminator(nn.Module):
                  img_channels,
                  lrelu_alpha):
         super().__init__()
+        self.fading = False
         self.img_size = init_img_size
         self.img_channels = img_channels
         self.lrelu_alpha = lrelu_alpha
         self.blocks = nn.ModuleList()
 
     def grow(self, block_params):
+
+        if len(self.blocks):
+            self.prev_from_rgb = self.from_rgb
 
         conv1_out_channels, _ = block_params[0]
         self.from_rgb = nn.Conv2d(
@@ -125,11 +144,19 @@ class Discriminator(nn.Module):
         self.img_size *= 2
 
     def forward(self, x):
+        if self.fading:
+            prev_x = F.avg_pool2d(x, kernel_size=2)
+            prev_x = self.prev_from_rgb(prev_x)*(1-self.fade_alpha)
+
         x = self.from_rgb(x)
         for i, block in enumerate(reversed(self.blocks)):
             x = block(x)
+
             if i < len(self.blocks)-1:
                 x = F.avg_pool2d(x, kernel_size=2)
+
+            if self.fading and i == 0:
+                x = prev_x + self.fade_alpha*x
 
         x = self.final_conv(x)
         x = self.final_activation(x)

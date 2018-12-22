@@ -200,11 +200,12 @@ def main():
         [(128, 3)],
         [(128, 3), (128, 3)],
         [(128, 3), (128, 3)],
-        [(64, 3), (64, 3)],
+        [(64, 3), (128, 3)],
         [(64, 3), (64, 3)]
     ]
 
     grow_epochs = {1, 10, 20, 30, 40}
+    epoch_fade = 0.2
 
     generator = Generator(
                     init_img_size=args.init_img_size,
@@ -221,6 +222,13 @@ def main():
     for epoch in range(1, args.epochs+1):
 
         if epoch in grow_epochs:
+            if epoch != 1:
+                generator.fading = True
+                discriminator.fading = True
+
+                generator.fade_alpha = 0
+                discriminator.fade_alpha = 0
+
             generator.grow(generator_blocks[block])
             discriminator.grow(discriminator_blocks[block])
             discriminator.to('cuda')
@@ -272,6 +280,14 @@ def main():
                                     f'epoch_{epoch}_real.png'))
 
             img_size *= 2
+
+        if generator.fading:
+            generator.fade_alpha += epoch_fade
+            discriminator.fade_alpha += epoch_fade
+
+        if generator.fading >= 1:
+            generator.fading = False
+            discriminator.fading = False
 
         g_optimizer = optim.Adam(generator.parameters(),
                                  lr=args.learning_rate,
