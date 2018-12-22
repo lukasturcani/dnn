@@ -204,14 +204,14 @@ def main():
         [(64, 3), (64, 3)]
     ]
 
-    grow_epochs = {1, 10, 20, 30, 40}
-    epoch_fade = 0.2
+    grow_epochs = {1, 10, 30, 50, 60}
+    epoch_fade = 0.1
 
     generator = Generator(
-                    init_img_size=args.init_img_size,
-                    img_channels=1,
-                    latent_space_channels=args.latent_space_channels,
-                    lrelu_alpha=args.lrelu_alpha)
+                     init_img_size=args.init_img_size,
+                     img_channels=1,
+                     latent_space_channels=args.latent_space_channels,
+                     lrelu_alpha=args.lrelu_alpha)
 
     discriminator = Discriminator(
                      init_img_size=args.init_img_size,

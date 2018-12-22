@@ -47,7 +47,13 @@ class Generator(nn.Module):
                            kernel_size=kernel_size,
                            stride=1,
                            padding=padding)
+            nn.init.kaiming_normal_(tensor=conv.weight,
+                                    a=self.lrelu_alpha)
             block.append(conv)
+
+            batch_norm = nn.BatchNorm2d(num_features=out_channels)
+            block.append(batch_norm)
+
             block.append(nn.LeakyReLU(self.lrelu_alpha))
             self.in_channels = out_channels
 
@@ -125,7 +131,13 @@ class Discriminator(nn.Module):
                            kernel_size=kernel_size,
                            stride=1,
                            padding=padding)
+            nn.init.kaiming_normal_(tensor=conv.weight,
+                                    a=self.lrelu_alpha)
             block.append(conv)
+
+            batch_norm = nn.BatchNorm2d(num_features=out_channels)
+            block.append(batch_norm)
+
             block.append(nn.LeakyReLU(self.lrelu_alpha))
             in_channels = out_channels
 
