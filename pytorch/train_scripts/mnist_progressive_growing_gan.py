@@ -207,8 +207,8 @@ def main():
         [(64, 3), (64, 3)]
     ]
 
-    grow_epochs = {1, 5, 15, 25, 35}
-    epoch_fade = 0.2
+    grow_epochs = {1, 3, 7, 11, 15}
+    epoch_fade = 0.5
 
     generator = Generator(
                      init_img_size=args.init_img_size,
