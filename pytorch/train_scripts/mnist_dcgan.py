@@ -147,16 +147,16 @@ def test(args, generator, discriminator, test_loader, epoch):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--seed', default=42, type=int)
-    parser.add_argument('--train_batch_size', default=100, type=int)
+    parser.add_argument('--train_batch_size', default=150, type=int)
     parser.add_argument('--test_batch_size', default=1000, type=int)
-    parser.add_argument('--learning_rate', default=0.0002, type=float)
+    parser.add_argument('--learning_rate', default=0.002, type=float)
     parser.add_argument('--epochs', default=30, type=int)
     parser.add_argument('--d_input_channels',
-                        default=[1, 64, 128, 256, 512],
+                        default=[1, 4, 8, 16, 32],
                         type=int,
                         nargs='+')
     parser.add_argument('--d_output_channels',
-                        default=[64, 128, 256, 512, 1],
+                        default=[4, 8, 16, 32, 1],
                         type=int,
                         nargs='+')
     parser.add_argument('--d_kernel_sizes',
@@ -172,11 +172,11 @@ def main():
                         type=int,
                         nargs='+')
     parser.add_argument('--g_input_channels',
-                        default=[100, 64*8, 64*4, 64*2, 64],
+                        default=[100, 32, 16, 8, 4],
                         type=int,
                         nargs='+')
     parser.add_argument('--g_output_channels',
-                        default=[64*8, 64*4, 64*2, 64, 1],
+                        default=[32, 16, 8, 4, 1],
                         type=int,
                         nargs='+')
     parser.add_argument('--g_kernel_sizes',

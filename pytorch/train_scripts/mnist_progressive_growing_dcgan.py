@@ -4,12 +4,12 @@ import os
 import shutil
 import torch
 from torch import optim, nn
-import torch.nn.functional as F
+from torchsummary import summary
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 from torchvision.utils import save_image
 
-from dnn.pytorch.models.growing_gan import GrowingGan
+from dnn.pytorch.models.growing_gan import Discriminator, Generator
 
 logger = logging.getLogger(__name__)
 
@@ -20,27 +20,25 @@ def train(args,
           g_optimizer,
           d_optimizer,
           train_loader,
-          epoch,
-          d_steps,
-          fade_alpha):
+          epoch):
 
     generator.train()
     discriminator.train()
     criterion = nn.BCEWithLogitsLoss()
 
-    d_steps_done = 0
     for batch_id, (real_images, _) in enumerate(train_loader):
         real_images = (real_images - 0.5) / 0.5
         batch_size = real_images.size()[0]
 
-        # Reshape real images.
         real_images = real_images.to('cuda')
-        prev_real_images = F.interpolate(real_images, scale_factor=0.5)
 
         # Create fake images.
-        noise = torch.randn(batch_size, args.g_input_channels[0], 1, 1,
+        noise = torch.randn(batch_size,
+                            args.latent_space_channels,
+                            args.init_img_size,
+                            args.init_img_size,
                             device='cuda')
-        prev_fake_images, fake_images = generator(noise)
+        fake_images = generator(noise)
 
         ###############################################################
         # Train the discriminator.
@@ -48,10 +46,8 @@ def train(args,
 
         d_optimizer.zero_grad()
 
-        prev_real_logits, real_logits = discriminator(prev_real_images,
-                                                      real_images)
-        prev_fake_logits, fake_logits = discriminator(prev_fake_images,
-                                                      fake_images)
+        real_logits = discriminator(real_images)
+        fake_logits = discriminator(fake_images)
 
         real_target = torch.ones(batch_size, device='cuda')
         real_target -= args.label_smoothing
@@ -64,39 +60,26 @@ def train(args,
 
         d_loss = d_real_loss + d_fake_loss
 
-        if prev_real_logits is not None:
-            d_prev_real_loss = criterion(prev_real_logits, real_target)
-            d_prev_fake_loss = criterion(prev_fake_logits, fake_target)
-            d_prev_loss = d_prev_real_loss + d_prev_fake_loss
-            d_loss = fade_alpha*d_loss + (1-fade_alpha)*d_prev_loss
-
         d_loss.backward()
         d_optimizer.step()
-
-        d_steps_done += 1
-        if d_steps_done < d_steps:
-            continue
-        d_steps_done = 0
 
         ###############################################################
         # Train the generator.
         ###############################################################
 
         g_optimizer.zero_grad()
-        noise = torch.randn(batch_size, args.g_input_channels[0], 1, 1,
+        noise = torch.randn(batch_size,
+                            args.latent_space_channels,
+                            args.init_img_size,
+                            args.init_img_size,
                             device='cuda')
 
-        prev_fake_images, fake_images = generator(noise)
-        prev_fake_logits, fake_logits = discriminator(prev_fake_images,
-                                                      fake_images)
+        fake_images = generator(noise)
+        fake_logits = discriminator(fake_images)
 
         fake_target = torch.ones(batch_size, device='cuda')
         fake_target = fake_target.view_as(fake_logits)
         g_loss = criterion(fake_logits, fake_target)
-
-        if prev_fake_logits is not None:
-            prev_g_loss = criterion(prev_fake_logits, fake_target)
-            g_loss = fade_alpha*g_loss + (1-fade_alpha)*prev_g_loss
 
         g_loss.backward()
         g_optimizer.step()
@@ -126,26 +109,22 @@ def test(args, generator, discriminator, test_loader, epoch):
             batch_size = real_images.size()[0]
 
             real_images = real_images.to('cuda')
-            prev_real_images = F.interpolate(real_images,
-                                             scale_factor=0.5)
 
-            noise = torch.randn(
-                            batch_size, args.g_input_channels[0], 1, 1,
-                            device='cuda')
-            prev_fake_images, fake_images = generator(noise)
+            noise = torch.randn(batch_size,
+                                args.latent_space_channels,
+                                args.init_img_size,
+                                args.init_img_size,
+                                device='cuda')
+            fake_images = generator(noise)
 
-            prev_real_logits, real_logits = discriminator(
-                                                prev_real_images,
-                                                real_images)
+            real_logits = discriminator(real_images)
             real_predictions = torch.sigmoid(real_logits).round()
             real_target = torch.ones(batch_size, device='cuda')
             real_target = real_target.view_as(real_predictions)
             batch_real_correct = real_predictions.eq(real_target).sum()
             real_correct += batch_real_correct.item()
 
-            prev_fake_logits, fake_logits = discriminator(
-                                                    prev_fake_images,
-                                                    fake_images)
+            fake_logits = discriminator(fake_images)
             fake_predictions = torch.sigmoid(fake_logits).round()
             fake_target = torch.zeros(batch_size, device='cuda')
             fake_target = fake_target.view_as(fake_predictions)
@@ -163,9 +142,12 @@ def test(args, generator, discriminator, test_loader, epoch):
                      real_correct)
     logger.info(msg)
 
-    noise = torch.randn(20, args.g_input_channels[0], 1, 1,
+    noise = torch.randn(20,
+                        args.latent_space_channels,
+                        args.init_img_size,
+                        args.init_img_size,
                         device='cuda')
-    prev_g_images, g_images = generator(noise)
+    g_images = generator(noise)
     save_image(g_images*0.5 + 0.5,
                os.path.join(args.img_dir,
                             f'epoch_{epoch}_generated.png'))
@@ -174,57 +156,22 @@ def test(args, generator, discriminator, test_loader, epoch):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--seed', default=42, type=int)
-    parser.add_argument('--train_batch_size', default=100, type=int)
+    parser.add_argument('--epochs', default=50, type=int)
+    parser.add_argument('--train_batch_size', default=16, type=int)
     parser.add_argument('--test_batch_size', default=1000, type=int)
-    parser.add_argument('--learning_rate', default=0.0002, type=float)
-    parser.add_argument('--image_channels', default=1, type=int)
-    parser.add_argument('--d_input_channels',
-                        default=[1, 64, 128, 256, 512],
-                        type=int,
-                        nargs='+')
-    parser.add_argument('--d_output_channels',
-                        default=[64, 128, 256, 512, 1024],
-                        type=int,
-                        nargs='+')
-    parser.add_argument('--d_kernel_sizes',
-                        default=[1, 4, 4, 4, 4],
-                        type=int,
-                        nargs='+')
-    parser.add_argument('--d_strides',
-                        default=[1, 2, 2, 2, 2],
-                        type=int,
-                        nargs='+')
-    parser.add_argument('--d_paddings',
-                        default=[0, 1, 1, 1, 1],
-                        type=int,
-                        nargs='+')
-    parser.add_argument('--d_final_kernel_size', default=4, type=int)
-    parser.add_argument('--g_input_channels',
-                        default=[100, 64*8, 64*4, 64*2, 64],
-                        type=int,
-                        nargs='+')
-    parser.add_argument('--g_output_channels',
-                        default=[64*8, 64*4, 64*2, 64, 32],
-                        type=int,
-                        nargs='+')
-    parser.add_argument('--g_kernel_sizes',
-                        default=[4, 4, 4, 4, 4],
-                        type=int,
-                        nargs='+')
-    parser.add_argument('--g_strides',
-                        default=[1, 2, 2, 2, 2],
-                        type=int,
-                        nargs='+')
-    parser.add_argument('--g_paddings',
-                        default=[0, 1, 1, 1, 1],
-                        type=int,
-                        nargs='+')
+    parser.add_argument('--beta1', default=0.0, type=float)
+    parser.add_argument('--beta2', default=0.99, type=float)
+    parser.add_argument('--learning_rate', default=0.001, type=float)
+    parser.add_argument('--init_img_size', default=4, type=int)
+    parser.add_argument('--latent_space_channels',
+                        default=128,
+                        type=int)
     parser.add_argument('--lrelu_alpha', default=0.2, type=float)
     parser.add_argument('--label_smoothing', default=0, type=float)
     parser.add_argument('--logging_level',
                         default=logging.DEBUG,
                         type=int)
-    parser.add_argument('--log_interval', default=50, type=int)
+    parser.add_argument('--log_interval', default=150, type=int)
     parser.add_argument('--database_root',
                         default='/home/lukas/databases')
     parser.add_argument('--img_dir', default='generated_images')
@@ -234,81 +181,62 @@ def main():
         shutil.rmtree(args.img_dir)
     os.mkdir(args.img_dir)
 
-    logging_fmt = ('%(asctime)s - %(levelname)s - '
-                   '%(module)s - %(msg)s')
+    log_fmt = '%(asctime)s - %(levelname)s - %(module)s - %(msg)s'
     date_fmt = '%d-%m-%Y %H:%M:%S'
     logging.basicConfig(level=args.logging_level,
-                        format=logging_fmt,
+                        format=log_fmt,
                         datefmt=date_fmt)
     torch.manual_seed(args.seed)
 
-    gan = GrowingGan(args=args)
+    generator_blocks = [
+        [(128, 3), (128, 3)],
+        [(128, 3), (128, 3)],
+        [(128, 3), (128, 3)],
+        [(64, 3), (64, 3)],
+        [(64, 3), (64, 3)]
+    ]
 
-    epoch_params = [
-             (4, 1.0, 1),
+    discriminator_blocks = [
+        [(128, 3)],
+        [(128, 3), (128, 3)],
+        [(128, 3), (128, 3)],
+        [(64, 3), (64, 3)],
+        [(64, 3), (64, 3)]
+    ]
 
-             (8, 0.5, 1),
-             (8, 1.0, 1),
+    grow_epochs = {1, 10, 20, 30, 40}
 
-             (16, 0.5, 1),
-             (16, 1.0, 1),
-             (16, 1.0, 1),
-             (16, 1.0, 1),
-             (16, 1.0, 1),
+    generator = Generator(
+                    init_img_size=args.init_img_size,
+                    img_channels=1,
+                    latent_space_channels=args.latent_space_channels,
+                    lrelu_alpha=args.lrelu_alpha)
 
-             (32, 0.2, 1),
-             (32, 0.2, 1),
-             (32, 0.2, 1),
-             (32, 0.4, 1),
-             (32, 0.4, 1),
-             (32, 0.4, 1),
-             (32, 0.6, 1),
-             (32, 0.6, 1),
-             (32, 0.6, 1),
-             (32, 0.8, 1),
-             (32, 0.8, 1),
-             (32, 0.8, 1),
-             (32, 1.0, 1),
-             (32, 1.0, 1),
-             (32, 1.0, 1),
-             (32, 1.0, 1),
+    discriminator = Discriminator(
+                     init_img_size=args.init_img_size,
+                     img_channels=1,
+                     lrelu_alpha=args.lrelu_alpha)
+    block = 0
+    img_size = args.init_img_size
+    for epoch in range(1, args.epochs+1):
 
-             (64, 0.2, 1),
-             (64, 0.2, 1),
-             (64, 0.2, 1),
-             (64, 0.2, 1),
-             (64, 0.4, 1),
-             (64, 0.4, 1),
-             (64, 0.4, 1),
-             (64, 0.4, 1),
-             (64, 0.6, 1),
-             (64, 0.6, 1),
-             (64, 0.6, 1),
-             (64, 0.6, 1),
-             (64, 0.8, 1),
-             (64, 0.8, 1),
-             (64, 0.8, 1),
-             (64, 0.8, 1),
-             (64, 1.0, 1),
-             (64, 1.0, 1),
-             (64, 1.0, 1),
-             (64, 1.0, 1),
-             (64, 1.0, 1),
-             (64, 1.0, 1),
-             (64, 1.0, 1),
-             (64, 1.0, 1)]
+        if epoch in grow_epochs:
+            generator.grow(generator_blocks[block])
+            discriminator.grow(discriminator_blocks[block])
+            discriminator.to('cuda')
+            generator.to('cuda')
 
-    previous_size = None
-    for epoch, e_params in enumerate(epoch_params, 1):
-        img_size, fade_alpha, d_steps = e_params
+            logging.debug(generator)
+            g_input_size = (args.latent_space_channels,
+                            args.init_img_size,
+                            args.init_img_size)
+            summary(generator, g_input_size)
 
-        if img_size != previous_size:
-            previous_size = img_size
-            gan.grow()
-            gan.discriminator.to('cuda')
-            gan.generator.to('cuda')
-            logging.debug(gan.generator)
-            logging.debug(gan.discriminator)
+            logging.debug(discriminator)
+            d_input_size = (1, img_size, img_size)
+            summary(discriminator, d_input_size)
+
+            block += 1
 
             transform = transforms.Compose([
                 transforms.Resize(img_size),
@@ -343,26 +271,26 @@ def main():
                        os.path.join(args.img_dir,
                                     f'epoch_{epoch}_real.png'))
 
-        g_optimizer = optim.Adam(gan.generator.parameters(),
+            img_size *= 2
+
+        g_optimizer = optim.Adam(generator.parameters(),
                                  lr=args.learning_rate,
-                                 betas=(0.5, 0.999))
-        d_optimizer = optim.Adam(gan.discriminator.parameters(),
+                                 betas=(args.beta1, args.beta2))
+        d_optimizer = optim.Adam(discriminator.parameters(),
                                  lr=args.learning_rate,
-                                 betas=(0.5, 0.999))
+                                 betas=(args.beta1, args.beta2))
 
         train(args=args,
-              generator=gan.generator,
-              discriminator=gan.discriminator,
+              generator=generator,
+              discriminator=discriminator,
               g_optimizer=g_optimizer,
               d_optimizer=d_optimizer,
               train_loader=train_loader,
-              epoch=epoch,
-              d_steps=d_steps,
-              fade_alpha=fade_alpha)
+              epoch=epoch)
 
         test(args=args,
-             generator=gan.generator,
-             discriminator=gan.discriminator,
+             generator=generator,
+             discriminator=discriminator,
              test_loader=test_loader,
              epoch=epoch)
 

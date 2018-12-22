@@ -1,192 +1,138 @@
 from torch import nn
+import torch.nn.functional as F
+
+
+def same_padding(size_out,
+                 size_in,
+                 kernel_size,
+                 stride,
+                 dilation):
+
+    t1 = (size_out - 1) * stride
+    t2 = (kernel_size - 1) * dilation
+    padding = t1 - size_in + t2 + 1
+    left = padding // 2
+    right = padding - left
+    return (left, right)
 
 
 class Generator(nn.Module):
     def __init__(self,
-                 image_channels,
-                 input_channels,
-                 output_channels,
-                 kernel_sizes,
-                 strides,
-                 paddings):
-
+                 init_img_size,
+                 img_channels,
+                 latent_space_channels,
+                 lrelu_alpha):
         super().__init__()
-        self.phase = 0
-        self.image_channels = image_channels
+        self.img_size = init_img_size
+        self.img_channels = img_channels
+        self.in_channels = latent_space_channels
+        self.lrelu_alpha = lrelu_alpha
+        self.blocks = nn.ModuleList()
 
-        params = zip(input_channels,
-                     output_channels,
-                     kernel_sizes,
-                     strides,
-                     paddings)
+    def grow(self, block_params):
+        block = []
 
-        self.convs = nn.ModuleList()
-        self.batch_norms = nn.ModuleList()
-        self.activations = nn.ModuleList()
+        for out_channels, kernel_size in block_params:
+            padding = same_padding(
+                           size_out=self.img_size,
+                           size_in=self.img_size,
+                           kernel_size=kernel_size,
+                           stride=1,
+                           dilation=1)
+            conv = nn.Conv2d(
+                           in_channels=self.in_channels,
+                           out_channels=out_channels,
+                           kernel_size=kernel_size,
+                           stride=1,
+                           padding=padding)
+            block.append(conv)
+            block.append(nn.LeakyReLU(self.lrelu_alpha))
+            self.in_channels = out_channels
 
-        for i, p in enumerate(params):
-            in_channels, out_channels, kernel_size, stride, padding = p
+        self.blocks.append(nn.Sequential(*block))
 
-            conv = nn.ConvTranspose2d(in_channels=in_channels,
-                                      out_channels=out_channels,
-                                      kernel_size=kernel_size,
-                                      stride=stride,
-                                      padding=padding,
-                                      bias=False)
-            self.convs.append(conv)
+        self.to_rgb = nn.Conv2d(
+                        in_channels=out_channels,
+                        out_channels=self.img_channels,
+                        kernel_size=1,
+                        stride=1,
+                        padding=0)
 
-            batch_norm = nn.BatchNorm2d(num_features=out_channels)
-            self.batch_norms.append(batch_norm)
-
-            self.activations.append(nn.ReLU(inplace=True))
-
-        self.final_activation = nn.Tanh()
-
-    def grow(self):
-        self.phase += 1
-        if self.phase > 1:
-            self.prev_final_conv = self.final_conv
-        self.final_conv = nn.Conv2d(
-                    in_channels=self.convs[self.phase-1].out_channels,
-                    out_channels=self.image_channels,
-                    kernel_size=1,
-                    stride=1,
-                    padding=0,
-                    bias=False)
-
-    def prev_forward(self, x):
-        if self.phase == 1:
-            return None
-
-        for i in range(self.phase-1):
-            x = self.convs[i](x)
-
-            if i < len(self.batch_norms):
-                x = self.batch_norms[i](x)
-
-            x = self.activations[i](x)
-
-        x = self.prev_final_conv(x)
-        return self.final_activation(x)
+        self.img_size *= 2
 
     def forward(self, x):
-        prev_x = self.prev_forward(x)
-        for i in range(self.phase):
-            x = self.convs[i](x)
-
-            if i < len(self.batch_norms):
-                x = self.batch_norms[i](x)
-
-            x = self.activations[i](x)
-
-        x = self.final_conv(x)
-        x = self.final_activation(x)
-
-        return prev_x, x
+        for i, block in enumerate(self.blocks):
+            if i != 0:
+                x = F.interpolate(x, scale_factor=2)
+            x = block(x)
+        return self.to_rgb(x)
 
 
 class Discriminator(nn.Module):
     def __init__(self,
-                 image_channels,
-                 input_channels,
-                 output_channels,
-                 kernel_sizes,
-                 strides,
-                 paddings,
-                 final_kernel_size,
+                 init_img_size,
+                 img_channels,
                  lrelu_alpha):
-
         super().__init__()
-        self.phase = 0
-        self.image_channels = image_channels
-        self.final_kernel_size = final_kernel_size
+        self.img_size = init_img_size
+        self.img_channels = img_channels
+        self.lrelu_alpha = lrelu_alpha
+        self.blocks = nn.ModuleList()
 
-        params = zip(input_channels,
-                     output_channels,
-                     kernel_sizes,
-                     strides,
-                     paddings)
+    def grow(self, block_params):
 
-        self.convs = nn.ModuleList()
-        self.batch_norms = nn.ModuleList()
-        self.activations = nn.ModuleList()
-        for i, p in enumerate(params):
-            in_channels, out_channels, kernel_size, stride, padding = p
+        conv1_out_channels, _ = block_params[0]
+        self.from_rgb = nn.Conv2d(
+                        in_channels=self.img_channels,
+                        out_channels=conv1_out_channels,
+                        kernel_size=1,
+                        stride=1,
+                        padding=0)
 
-            conv = nn.Conv2d(in_channels=in_channels,
-                             out_channels=out_channels,
-                             kernel_size=kernel_size,
-                             stride=stride,
-                             padding=padding,
-                             bias=False)
-            self.convs.append(conv)
+        block = []
 
-            self.activations.append(nn.LeakyReLU(lrelu_alpha))
+        in_channels = conv1_out_channels
+        for out_channels, kernel_size in block_params:
 
-            if i != 0:
-                batch_norm = nn.BatchNorm2d(num_features=out_channels)
-                self.batch_norms.append(batch_norm)
+            padding = same_padding(
+                           size_out=self.img_size,
+                           size_in=self.img_size,
+                           kernel_size=kernel_size,
+                           stride=1,
+                           dilation=1)
+            conv = nn.Conv2d(
+                           in_channels=in_channels,
+                           out_channels=out_channels,
+                           kernel_size=kernel_size,
+                           stride=1,
+                           padding=padding)
+            block.append(conv)
+            block.append(nn.LeakyReLU(self.lrelu_alpha))
+            in_channels = out_channels
 
-    def grow(self):
-        self.phase += 1
-        if self.phase > 1:
-            self.prev_final_conv = self.final_conv
-        self.final_conv = nn.Conv2d(
-                    in_channels=self.convs[self.phase-1].out_channels,
-                    out_channels=self.image_channels,
-                    kernel_size=self.final_kernel_size,
-                    stride=1,
-                    padding=0,
-                    bias=False)
+        self.blocks.append(nn.Sequential(*block))
 
-    def prev_forward(self, x):
-        if self.phase == 1:
-            return None
+        if len(self.blocks) == 1:
+            self.final_conv = nn.Conv2d(in_channels=out_channels,
+                                        out_channels=out_channels,
+                                        kernel_size=self.img_size,
+                                        stride=1,
+                                        padding=0)
+            self.final_activation = nn.LeakyReLU(self.lrelu_alpha)
+            self.fc = nn.Linear(in_features=out_channels,
+                                out_features=1)
 
-        for i in range(self.phase-1):
-            x = self.convs[i](x)
+        self.img_size *= 2
 
-            if i != 0:
-                x = self.batch_norms[i-1](x)
+    def forward(self, x):
+        x = self.from_rgb(x)
+        for i, block in enumerate(reversed(self.blocks)):
+            x = block(x)
+            if i < len(self.blocks)-1:
+                x = F.avg_pool2d(x, kernel_size=2)
 
-            x = self.activations[i](x)
-
-        return self.prev_final_conv(x)
-
-    def forward(self, prev_x, x):
-        prev_x = self.prev_forward(prev_x)
-
-        for i in range(self.phase):
-            x = self.convs[i](x)
-
-            if i != 0:
-                x = self.batch_norms[i-1](x)
-
-            x = self.activations[i](x)
-
-        return prev_x, self.final_conv(x)
-
-
-class GrowingGan:
-    def __init__(self, args):
-        self.generator = Generator(
-                    image_channels=args.image_channels,
-                    input_channels=args.g_input_channels,
-                    output_channels=args.g_output_channels,
-                    kernel_sizes=args.g_kernel_sizes,
-                    strides=args.g_strides,
-                    paddings=args.g_paddings)
-
-        self.discriminator = Discriminator(
-                    image_channels=args.image_channels,
-                    input_channels=args.d_input_channels,
-                    output_channels=args.d_output_channels,
-                    kernel_sizes=args.d_kernel_sizes,
-                    strides=args.d_strides,
-                    paddings=args.d_paddings,
-                    final_kernel_size=args.d_final_kernel_size,
-                    lrelu_alpha=args.lrelu_alpha)
-
-    def grow(self):
-        self.generator.grow()
-        self.discriminator.grow()
+        x = self.final_conv(x)
+        x = self.final_activation(x)
+        batch_size = x.size()[0]
+        x = x.reshape(batch_size, -1)
+        return self.fc(x)
