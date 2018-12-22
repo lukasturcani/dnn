@@ -156,7 +156,7 @@ def test(args, generator, discriminator, test_loader, epoch):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--seed', default=42, type=int)
-    parser.add_argument('--epochs', default=50, type=int)
+    parser.add_argument('--epochs', default=100, type=int)
     parser.add_argument('--train_batch_size', default=16, type=int)
     parser.add_argument('--test_batch_size', default=1000, type=int)
     parser.add_argument('--beta1', default=0.0, type=float)
