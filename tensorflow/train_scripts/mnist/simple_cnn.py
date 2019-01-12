@@ -14,7 +14,7 @@ class InitHook(tf.train.SessionRunHook):
 
 def get_input_fn(batch_size, images, labels, train):
     """
-    Creates an input function which feeds the training set.
+    Creates an input function which feeds the network with data.
 
     Parameters
     ----------
@@ -37,7 +37,7 @@ def get_input_fn(batch_size, images, labels, train):
 
     """
 
-    images_array = images.reshape([-1, 28, 28, 1])
+    images_array = (images.reshape([-1, 28, 28, 1])/255 - 0.5) * 2
     labels_array = LabelBinarizer().fit_transform(labels)
     init_hook = InitHook()
 

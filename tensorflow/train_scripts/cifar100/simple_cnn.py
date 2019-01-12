@@ -14,7 +14,7 @@ class InitHook(tf.train.SessionRunHook):
 
 def get_input_fn(batch_size, dataset_path, train):
     """
-    Creates an input function which feeds the training set.
+    Creates an input function which feeds the network with data.
 
     Parameters
     ----------
