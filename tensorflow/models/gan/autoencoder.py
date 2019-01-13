@@ -130,7 +130,9 @@ def model_fn(features, labels, mode, params):
                     labels=features['images'],
                     predictions=g_images)
 
-    g_loss = g_gen_loss + 165*g_mse_loss
+    # When pre-training the generator - only care about the mse loss.
+    g_loss = (g_mse_loss if params.training_network == 'g' else
+              g_gen_loss + g_mse_loss)
 
     d_real_loss = tf.losses.sigmoid_cross_entropy(
                     multi_class_labels=[[0]]*params.batch_size,
@@ -176,13 +178,22 @@ def model_fn(features, labels, mode, params):
                     predictions=tf.round(d_fake_predictions))
     }
 
-    train_ops = {'d': d_train_op,
-                 'g': g_train_op,
-                 'both': train_op}
-
+    # Depending of if the generator or discriminator is being
+    # pre-trained or if the entire GAN is being trained - select
+    # different train ops and losses.
+    train_ops = {
+        'd': d_train_op,
+        'g': g_train_op,
+        'both': train_op
+    }
+    losses = {
+        'd': d_loss,
+        'g': g_mse_loss,
+        'both': d_loss
+    }
     return tf.estimator.EstimatorSpec(
                       mode=mode,
                       predictions=predictions,
-                      loss=d_loss,
+                      loss=losses[params.training_network],
                       train_op=train_ops[params.training_network],
                       eval_metric_ops=eval_metric_ops)

@@ -138,7 +138,7 @@ def make_parser():
     parser.add_argument('--save_step', default=1000, type=int)
     parser.add_argument('--batch_size', default=20, type=int)
     parser.add_argument('--d_pretrain_steps', default=3000, type=int)
-    parser.add_argument('--g_pretrain_steps', default=3000, type=int)
+    parser.add_argument('--g_pretrain_steps', default=33000, type=int)
     parser.add_argument('--both_train_steps',
                         default=1_000_000,
                         type=int)
@@ -241,11 +241,11 @@ def main():
     )
 
     ###################################################################
-    # Pre-train discriminator.
+    # Pre-train generator.
     ###################################################################
 
-    params.training_network = 'd'
-    params.train_steps = params.d_pretrain_steps
+    params.training_network = 'g'
+    params.train_steps = params.g_pretrain_steps
 
     # Create the estimator.
     estimator = tf.estimator.Estimator(
@@ -268,11 +268,11 @@ def main():
     )
 
     ###################################################################
-    # Pre-train generator.
+    # Pre-train discriminator.
     ###################################################################
 
-    params.training_network = 'g'
-    params.train_steps = params.g_pretrain_steps
+    params.training_network = 'd'
+    params.train_steps = params.d_pretrain_steps
 
     # Create the estimator.
     estimator = tf.estimator.Estimator(
