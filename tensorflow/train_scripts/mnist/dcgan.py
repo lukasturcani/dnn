@@ -5,6 +5,8 @@ from sklearn.preprocessing import LabelBinarizer
 import numpy as np
 import os
 import pickle
+from imageio import imwrite
+from skimage.transform import resize
 
 from dnn.tensorflow.models.gan.dcgan import model_fn
 
@@ -82,8 +84,41 @@ def get_input_fn(batch_size, images, labels, params):
     return input_fn, init_hook
 
 
+def write_image(filename, img):
+    img = resize(img, [280, 280])
+    img = (img*0.5 + 0.5)*255
+    imwrite(filename, np.uint8(img))
+
+
+def sample_generator(params):
+    estimator = tf.estimator.Estimator(model_fn=model_fn,
+                                       model_dir=params.model_dir,
+                                       params=params)
+
+    def input_fn():
+        noise = tf.random_normal(shape=[1, 1, 1, 100])
+        gen_labels = tf.one_hot(indices=[0],
+                                depth=10,
+                                dtype=tf.float32)
+        return {
+            'noise': noise,
+            'gen_labels': gen_labels,
+            'images': tf.random_normal(shape=[1, 64, 64, 1])
+        }
+
+    prediction = estimator.predict(input_fn=input_fn,
+                                   predict_keys='g_images')
+
+    if not os.path.exists('pics'):
+        os.mkdir('pics')
+
+    for i in range(25):
+        write_image(f'pics/eg_{i}.jpg', next(prediction)['g_images'])
+
+
 def make_parser():
     parser = argparse.ArgumentParser()
+    parser.add_argument('--sample_generator', action='store_true')
     parser.add_argument('--model_dir', default='output')
     parser.add_argument('--batch_size', default=100, type=int)
     parser.add_argument('--train_steps', default=1000000, type=int)
@@ -141,6 +176,11 @@ def make_parser():
 
 def main():
     params = make_parser().parse_args()
+
+    # Check if generation of images requested.
+    if params.sample_generator:
+        sample_generator(params)
+        exit()
 
     ###################################################################
     # Save the hyperparameters.

@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 from torchvision.utils import save_image
 
-from dnn.pytorch.models.dcgan import Generator, Discriminator
+from dnn.pytorch.models.gan.dcgan import Generator, Discriminator
 
 logger = logging.getLogger(__name__)
 
@@ -147,16 +147,16 @@ def test(args, generator, discriminator, test_loader, epoch):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--seed', default=42, type=int)
-    parser.add_argument('--train_batch_size', default=150, type=int)
+    parser.add_argument('--train_batch_size', default=100, type=int)
     parser.add_argument('--test_batch_size', default=1000, type=int)
-    parser.add_argument('--learning_rate', default=0.002, type=float)
+    parser.add_argument('--learning_rate', default=0.0002, type=float)
     parser.add_argument('--epochs', default=30, type=int)
     parser.add_argument('--d_input_channels',
-                        default=[1, 4, 8, 16, 32],
+                        default=[1, 128, 256, 512, 1024],
                         type=int,
                         nargs='+')
     parser.add_argument('--d_output_channels',
-                        default=[4, 8, 16, 32, 1],
+                        default=[128, 256, 512, 1024, 1],
                         type=int,
                         nargs='+')
     parser.add_argument('--d_kernel_sizes',
@@ -172,11 +172,11 @@ def main():
                         type=int,
                         nargs='+')
     parser.add_argument('--g_input_channels',
-                        default=[100, 32, 16, 8, 4],
+                        default=[100, 1024, 512, 256, 128],
                         type=int,
                         nargs='+')
     parser.add_argument('--g_output_channels',
-                        default=[32, 16, 8, 4, 1],
+                        default=[1024, 512, 256, 128, 1],
                         type=int,
                         nargs='+')
     parser.add_argument('--g_kernel_sizes',
@@ -192,7 +192,7 @@ def main():
                         type=int,
                         nargs='+')
     parser.add_argument('--lrelu_alpha', default=0.2, type=float)
-    parser.add_argument('--label_smoothing', default=0, type=float)
+    parser.add_argument('--label_smoothing', default=0.3, type=float)
     parser.add_argument('--logging_level',
                         default=logging.DEBUG,
                         type=int)
