@@ -14,7 +14,7 @@ or::
     $ python -m dnn.tensorflow.train_scripts.cifar100.simple_cnn
 
 Notice that the scripts are run from the module level using the
-```python -m`` flag.
+``python -m`` flag.
 
 Networks can be modified using command line arguments, for example::
 
