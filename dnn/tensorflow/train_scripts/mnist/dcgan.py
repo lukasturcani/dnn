@@ -3,10 +3,8 @@ from tensorflow.keras.datasets import mnist
 import argparse
 from sklearn.preprocessing import LabelBinarizer
 import numpy as np
-import os
-import pickle
-from imageio import imwrite
-from skimage.transform import resize
+from torchvision.utils import save_image
+import torch
 
 from dnn.tensorflow.models.gan.dcgan import model_fn
 
@@ -84,36 +82,57 @@ def get_input_fn(batch_size, images, labels, params):
     return input_fn, init_hook
 
 
-def write_image(filename, img):
-    img = resize(img, [280, 280])
-    img = (img*0.5 + 0.5)*255
-    imwrite(filename, np.uint8(img))
-
-
 def sample_generator(params):
-    estimator = tf.estimator.Estimator(model_fn=model_fn,
-                                       model_dir=params.model_dir,
-                                       params=params)
+    """
+    Uses the generator to create new images and saves them.
+
+    Parameters
+    ----------
+    params : :class:`Namespace`
+        The parameters passed to the script.
+
+    Returns
+    -------
+    None : :class:`NoneType`
+
+    """
+
+    # Create a new input_fn which feeds the generator with data.
+    # A custom one is defined here to avoid loading the MNIST dataset.
+    # Because all we are doing is sampling the generator, we only
+    # need a noise tensor really.
 
     def input_fn():
-        noise = tf.random_normal(shape=[1, 1, 1, 100])
-        gen_labels = tf.one_hot(indices=[0],
+        noise = tf.random_normal(shape=[params.num_images, 1, 1, 100])
+
+        # This is ignored if --labels is not used. When --labels is
+        # used, the indices argument determines which digits get
+        # sampled.
+        indices = [i % 10 for i in range(params.num_images)]
+        gen_labels = tf.one_hot(indices=indices,
                                 depth=10,
                                 dtype=tf.float32)
         return {
             'noise': noise,
             'gen_labels': gen_labels,
-            'images': tf.random_normal(shape=[1, 64, 64, 1])
+            # Create a dummy tensor which feeds noise where MNIST
+            # images should normally go. As we are only sampling
+            # the generator, this should never be used but must exist
+            # because the graph defintion requires it.
+            'images': tf.random_normal(
+                                  shape=[params.num_images, 64, 64, 1])
         }
 
-    prediction = estimator.predict(input_fn=input_fn,
-                                   predict_keys='g_images')
+    estimator = tf.estimator.Estimator(model_fn=model_fn,
+                                       model_dir=params.model_dir,
+                                       params=params)
 
-    if not os.path.exists('pics'):
-        os.mkdir('pics')
-
-    for i in range(25):
-        write_image(f'pics/eg_{i}.jpg', next(prediction)['g_images'])
+    sample = estimator.predict(input_fn=input_fn,
+                               predict_keys='g_images',
+                               yield_single_examples=False)
+    images = next(sample)['g_images'].reshape(-1, 1, 64, 64)
+    images = torch.from_numpy(images*0.5 + 0.5)
+    save_image(images, 'generator_sample.jpg', nrow=10)
 
 
 def make_parser():
@@ -121,29 +140,34 @@ def make_parser():
     parser.add_argument('--sample_generator', action='store_true')
     parser.add_argument('--model_dir', default='output')
     parser.add_argument('--batch_size', default=100, type=int)
-    parser.add_argument('--train_steps', default=1000000, type=int)
+    parser.add_argument('--train_steps', default=1_000_000, type=int)
     parser.add_argument('--save_step', default=1000, type=int)
-    parser.add_argument('--learning_rate', default=0.0002, type=float)
+    parser.add_argument('--learning_rate', default=2e-4, type=float)
     parser.add_argument('--beta1', default=0.5, type=float)
     parser.add_argument('--lrelu_alpha', default=0.2, type=float)
     parser.add_argument('--label_smoothing', default=0.3, type=float)
     parser.add_argument('--labels', action='store_true')
+
     parser.add_argument('--g_dropout_layers',
-                        default=[2, 3],
+                        default=[],
                         type=int,
                         nargs='+')
+
     parser.add_argument('--g_depths',
                         default=[1024, 512, 256, 128, 1],
                         type=int,
                         nargs='+')
+
     parser.add_argument('--g_kernel_sizes',
                         default=[4, 4, 4, 4, 4],
                         type=int,
                         nargs='+')
+
     parser.add_argument('--g_strides',
                         default=[1, 2, 2, 2, 2],
                         type=int,
                         nargs='+')
+
     parser.add_argument('--g_padding',
                         default=['valid',
                                  'same',
@@ -151,18 +175,22 @@ def make_parser():
                                  'same',
                                  'same'],
                         nargs='+')
+
     parser.add_argument('--d_depths',
                         default=[128, 256, 512, 1024, 1],
                         type=int,
                         nargs='+')
+
     parser.add_argument('--d_kernel_sizes',
                         default=[4, 4, 4, 4, 4],
                         type=int,
                         nargs='+')
+
     parser.add_argument('--d_strides',
                         default=[2, 2, 2, 2, 1],
                         type=int,
                         nargs='+')
+
     parser.add_argument('--d_padding',
                         default=['same',
                                  'same',
@@ -170,6 +198,12 @@ def make_parser():
                                  'same',
                                  'valid'],
                         nargs='+')
+
+    parser.add_argument('--num_images',
+                        default=20,
+                        type=int,
+                        help=('The number of images to '
+                              'save when using --sample_generator.'))
 
     return parser
 
@@ -181,16 +215,6 @@ def main():
     if params.sample_generator:
         sample_generator(params)
         exit()
-
-    ###################################################################
-    # Save the hyperparameters.
-    ###################################################################
-
-    if not os.path.exists(params.model_dir):
-        os.mkdir(params.model_dir)
-
-    with open(f'{params.model_dir}/hyperparams.pkl', 'wb') as f:
-        pickle.dump(params, f)
 
     ###################################################################
     # Create the RunConfig.

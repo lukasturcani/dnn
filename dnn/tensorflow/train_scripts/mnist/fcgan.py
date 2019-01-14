@@ -5,7 +5,6 @@ import numpy as np
 from sklearn.preprocessing import LabelBinarizer
 from torchvision.utils import save_image
 import torch
-import torch.nn.functional as F
 
 from dnn.tensorflow.models.gan.fcgan import model_fn
 
@@ -130,7 +129,6 @@ def sample_generator(params):
                                yield_single_examples=False)
     images = next(sample)['g_images'].reshape(-1, 1, 28, 28)
     images = torch.from_numpy(images)
-    images = F.interpolate(images*0.5 + 0.5, scale_factor=10)
     save_image(images, 'generator_sample.jpg', nrow=10)
 
 
