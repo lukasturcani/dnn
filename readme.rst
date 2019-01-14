@@ -36,10 +36,10 @@ Results
 This is a short summary of some of the nice results from this repo.
 Not all implemented architectures are listed here.
 
-`Progressive Growing GAN (PGGAN)`_
-`Image Inpainting`_
-`DCGAN`_
-`FCGAN`_
+* `Progressive Growing GAN (PGGAN)`_
+* `Image Inpainting`_
+* `DCGAN`_
+* `FCGAN`_
 
 Progressive Growing GAN (PGGAN)
 -------------------------------
