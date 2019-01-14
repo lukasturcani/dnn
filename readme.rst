@@ -164,3 +164,5 @@ Run with::
 To generate results::
 
     $ python -m dnn.tensorflow.train_scripts.mnist.dcgan --labels --sample_generator
+
+.. image:: images/tensorflow/mnist_fcgan_labels.jpg
