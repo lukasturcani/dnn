@@ -137,7 +137,7 @@ def sample_generator(params):
                                predict_keys='g_images')
     images = torch.from_numpy(next(sample)['g_images'])
     images = F.upsample(images*0.5 + 0.5, scale_factor=10)
-    save_image(images.numpy(), 'generator_sample.jpg')
+    save_image(images.numpy(), 'generator_sample.jpg', nrow=10)
 
 
 def make_parser():
