@@ -3,8 +3,6 @@ from tensorflow.keras.datasets import mnist
 import argparse
 import numpy as np
 from sklearn.preprocessing import LabelBinarizer
-import pickle
-import os
 from torchvsion.utils import save_image
 import torch
 import torch.nn.functional as F
@@ -191,16 +189,6 @@ def main():
     if params.sample_generator:
         sample_generator(params)
         exit()
-
-    ###################################################################
-    # Save the hyperparameters.
-    ###################################################################
-
-    if not os.path.exists(params.model_dir):
-        os.mkdir(params.model_dir)
-
-    with open(f'{params.model_dir}/hyperparams.pkl', 'wb') as f:
-        pickle.dump(params, f)
 
     ###################################################################
     # Create the RunConfig.
