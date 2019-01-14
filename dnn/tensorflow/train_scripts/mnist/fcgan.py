@@ -3,7 +3,7 @@ from tensorflow.keras.datasets import mnist
 import argparse
 import numpy as np
 from sklearn.preprocessing import LabelBinarizer
-from torchvsion.utils import save_image
+from torchvision.utils import save_image
 import torch
 import torch.nn.functional as F
 
@@ -121,21 +121,17 @@ def sample_generator(params):
                                      shape=[params.num_images, 28*28])
         }
 
-    # Load the estimator on the CPU so that we can sample the generator
-    # while the network is being trained on the GPU.
-    config = tf.estimator.RunConfig(model_dir=params.model_dir,
-                                    device_fn=lambda: 'cpu:/0')
-
     estimator = tf.estimator.Estimator(model_fn=model_fn,
                                        model_dir=params.model_dir,
-                                       config=config,
                                        params=params)
 
     sample = estimator.predict(input_fn=input_fn,
-                               predict_keys='g_images')
-    images = torch.from_numpy(next(sample)['g_images'])
-    images = F.upsample(images*0.5 + 0.5, scale_factor=10)
-    save_image(images.numpy(), 'generator_sample.jpg', nrow=10)
+                               predict_keys='g_images',
+                               yield_single_examples=False)
+    images = next(sample)['g_images'].reshape(-1, 1, 28, 28)
+    images = torch.from_numpy(images)
+    images = F.interpolate(images*0.5 + 0.5, scale_factor=10)
+    save_image(images, 'generator_sample.jpg', nrow=10)
 
 
 def make_parser():
