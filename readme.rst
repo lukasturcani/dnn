@@ -1,6 +1,6 @@
 :author: Lukas Turcani
 
-.. image:: 
+.. image::
 
 This repo provides a number of network architectures, implemented in
 both PyTorch and TensorFlow as well as scripts used to run them.
@@ -34,7 +34,7 @@ Results
 =======
 
 This is a short summary of some of the nice results from this repo.
-Not all implement architectures are listed here.
+Not all implemented architectures are listed here.
 
 Progressive Growing GAN (PGGAN)
 -------------------------------
