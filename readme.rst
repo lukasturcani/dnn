@@ -107,7 +107,7 @@ To generate results::
 
     $ python -m dnn.tensorflow.train_scripts.mnist.dcgan --sample_generator
 
-.. image::
+.. image:: images/tensorflow/mnist_dcgan.jpg
 
 This network can also be trained using the labelling information
 present in the MNIST dataset. This leads to better results and each
@@ -121,6 +121,7 @@ To generate results::
 
     $ python -m dnn.tensorflow.train_scripts.mnist.dcgan --labels --sample_generator
 
+.. image:: images/tensorflow/mnist_dcgan_labels.jpg
 
 FCGAN
 -----
