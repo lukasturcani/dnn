@@ -36,6 +36,8 @@ Results
 This is a short summary of some of the nice results from this repo.
 Not all implemented architectures are listed here.
 
+
+
 Progressive Growing GAN (PGGAN)
 -------------------------------
 
@@ -89,8 +91,6 @@ Run with::
 
     $ python -m dnn.pytorch.train_scripts.mnist.dcgan
 
-Results:
-
 .. image::
 
 TensorFlow implentation
@@ -100,9 +100,23 @@ Run with::
 
     $ python -m dnn.tensorflow.train_scripts.mnist.dcgan
 
-Results:
+To generate results::
+
+    $ python -m dnn.tensorflow.train_scripts.mnist.dcgan --sample_generator
 
 .. image::
+
+This network can also be trained using the labelling information
+present in the MNIST dataset. This leads to better results and each
+digit can be sampled explicitly.
+
+Run with::
+
+    $ python -m dnn.tensorflow.train_scripts.mnist.dcgan --labels
+
+To generate results::
+
+    $ python -m dnn.tensorflow.train_scripts.mnist.dcgan --labels --sample_generator
 
 
 FCGAN
@@ -130,6 +144,20 @@ Run with::
 
     $ python -m dnn.tensorflow.train_scripts.mnist.fcgan
 
-Results:
+To generate results::
+
+    $ python -m dnn.tensorflow.train_scripts.mnist.fcgan --sample_generator
 
 .. image::
+
+This network can also be trained using the labelling information
+present in the MNIST dataset. This leads to better results and each
+digit can be sampled explicitly.
+
+Run with::
+
+    $ python -m dnn.tensorflow.train_scripts.mnist.dcgan --labels
+
+To generate results::
+
+    $ python -m dnn.tensorflow.train_scripts.mnist.dcgan --labels --sample_generator
