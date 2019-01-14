@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 from torchvision.utils import save_image
 
-from dnn.pytorch.models.simple_gan import Generator, Discriminator
+from dnn.pytorch.models.fcgan import Generator, Discriminator
 
 logger = logging.getLogger(__name__)
 
