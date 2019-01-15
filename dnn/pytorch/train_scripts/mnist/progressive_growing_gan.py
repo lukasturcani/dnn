@@ -378,7 +378,7 @@ def main():
             # Create new dataset loaders of the correct image size.
             ###########################################################
 
-            train_loader, test_loader = mnist_loaders(img_size)
+            train_loader, test_loader = mnist_loaders(args, img_size)
 
             # Save reference dataset images at the new size.
             save_image(next(iter(test_loader))[0][:20],
