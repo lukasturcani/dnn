@@ -14,6 +14,50 @@ from dnn.pytorch.models.growing_gan import Discriminator, Generator
 logger = logging.getLogger(__name__)
 
 
+class MNISTLoader:
+    """
+
+    """
+
+    def __init__(self, init_img_size):
+        self.init_img_size = init_img_size
+
+    def grow(self, img_size):
+        """
+
+        """
+
+            transform = transforms.Compose([
+                transforms.Resize(img_size),
+                transforms.ToTensor()
+            ])
+
+            train_mnist = datasets.MNIST(root=args.database_root,
+                                         train=True,
+                                         download=True,
+                                         transform=transform)
+
+            train_loader = DataLoader(
+                                dataset=train_mnist,
+                                batch_size=args.train_batch_size,
+                                shuffle=True,
+                                num_workers=1,
+                                pin_memory=True)
+
+            test_mnist = datasets.MNIST(root=args.database_root,
+                                        train=False,
+                                        download=True,
+                                        transform=transform)
+
+            test_loader = DataLoader(
+                            dataset=test_mnist,
+                            batch_size=args.test_batch_size,
+                            shuffle=True,
+                            num_workers=1,
+                            pin_memory=True)
+        return train_loader, test_loader
+
+
 def train(args,
           generator,
           discriminator,
@@ -155,7 +199,13 @@ def test(args, generator, discriminator, test_loader, epoch):
 
 
 def main():
+
+    ###################################################################
+    # Define command line parameters.
+    ###################################################################
+
     parser = argparse.ArgumentParser()
+    parser.add_argument('--output_dir', default='output')
     parser.add_argument('--seed', default=42, type=int)
     parser.add_argument('--epochs', default=100, type=int)
     parser.add_argument('--train_batch_size', default=16, type=int)
@@ -164,19 +214,26 @@ def main():
     parser.add_argument('--beta2', default=0.99, type=float)
     parser.add_argument('--learning_rate', default=0.001, type=float)
     parser.add_argument('--init_img_size', default=4, type=int)
+    parser.add_argument('--lrelu_alpha', default=0.2, type=float)
+    parser.add_argument('--label_smoothing', default=0, type=float)
+    parser.add_argument('--log_interval', default=150, type=int)
+
     parser.add_argument('--latent_space_channels',
                         default=128,
                         type=int)
-    parser.add_argument('--lrelu_alpha', default=0.2, type=float)
-    parser.add_argument('--label_smoothing', default=0, type=float)
+
     parser.add_argument('--logging_level',
                         default=logging.DEBUG,
                         type=int)
-    parser.add_argument('--log_interval', default=150, type=int)
+
     parser.add_argument('--database_root',
                         default='/home/lukas/databases')
-    parser.add_argument('--output_dir', default='output')
+
     args = parser.parse_args()
+
+    ###################################################################
+    # Set up the output directory.
+    ###################################################################
 
     if os.path.exists(args.output_dir):
         shutil.rmtree(args.output_dir)
@@ -184,13 +241,29 @@ def main():
     os.mkdir(os.path.join(args.output_dir, 'images'))
     os.mkdir(os.path.join(args.output_dir, 'models'))
 
+    ###################################################################
+    # Set up logging.
+    ###################################################################
+
     log_fmt = '%(asctime)s - %(levelname)s - %(module)s - %(msg)s'
     date_fmt = '%d-%m-%Y %H:%M:%S'
     logging.basicConfig(level=args.logging_level,
                         format=log_fmt,
                         datefmt=date_fmt)
+
+    ###################################################################
+    # Set random seed.
+    ###################################################################
+
     torch.manual_seed(args.seed)
 
+    ###################################################################
+    # Define network parameters.
+    ###################################################################
+
+    # The output channels and kernel size of each convolutional layer.
+    # Each tuple represents a single convolutional layer.
+    # Tuples in the same sublist belong to the same block.
     generator_blocks = [
         [(128, 3), (128, 3)],
         [(128, 3), (128, 3)],
@@ -199,6 +272,9 @@ def main():
         [(64, 3), (64, 3)]
     ]
 
+    # The output channels and kernel size of each convoluational layer.
+    # Each tuple represents a single convolutional layer.
+    # Tuples in the same sublist belong to the same block.
     discriminator_blocks = [
         [(128, 3)],
         [(128, 3), (128, 3)],
@@ -207,8 +283,15 @@ def main():
         [(64, 3), (64, 3)]
     ]
 
-    grow_epochs = {1, 3, 7, 11, 15}
+    # The epochs on which a new block is added to the networks.
+    grow_epochs = { 1, 3, 7, 11, 15 }
+    # During each epoch, if a new convolutional block is being faded
+    # in, the fade_alpha of the networks increases by this amount.
     epoch_fade = 0.5
+
+    ###################################################################
+    # Build the networks.
+    ###################################################################
 
     generator = Generator(
                      init_img_size=args.init_img_size,
@@ -220,11 +303,27 @@ def main():
                      init_img_size=args.init_img_size,
                      img_channels=1,
                      lrelu_alpha=args.lrelu_alpha)
+
+    ###################################################################
+    # Load the MNIST data.
+    ###################################################################
+
+    mnist_loader =  MNISTLoader(init_img_size=args.init_img_size)
+
+    ###################################################################
+    # Train.
+    ###################################################################
+
     block = 0
     img_size = args.init_img_size
     for epoch in range(1, args.epochs+1):
 
+    ###################################################################
+
         if epoch in grow_epochs:
+
+            # On the first epoch there is only 1 block so there is
+            # nothing to fade in.
             if epoch != 1:
                 generator.fading = True
                 discriminator.fading = True
@@ -232,64 +331,67 @@ def main():
                 generator.fade_alpha = 0
                 discriminator.fade_alpha = 0
 
+            ###########################################################
+            # Save the models.
+            ###########################################################
+
             torch.save(
                 generator,
                 os.path.join(args.output_dir, 'models', f'g_{epoch}'))
             torch.save(
                 discriminator,
                 os.path.join(args.output_dir, 'models', f'd_{epoch}'))
+
+            ###########################################################
+            # Grow the networks.
+            ###########################################################
+
             generator.grow(generator_blocks[block])
             discriminator.grow(discriminator_blocks[block])
+
+            g_optimizer = optim.Adam(generator.parameters(),
+                                     lr=args.learning_rate,
+                                     betas=(args.beta1, args.beta2))
+            d_optimizer = optim.Adam(discriminator.parameters(),
+                                     lr=args.learning_rate,
+                                     betas=(args.beta1, args.beta2))
+
+            block += 1
+
             discriminator.to('cuda')
             generator.to('cuda')
 
+            # Log the new generator architecture.
             logging.debug(generator)
             g_input_size = (args.latent_space_channels,
                             args.init_img_size,
                             args.init_img_size)
             summary(generator, g_input_size)
 
+            # Log the new discrimonator architecture.
             logging.debug(discriminator)
             d_input_size = (1, img_size, img_size)
             summary(discriminator, d_input_size)
 
-            block += 1
+            ###########################################################
+            # Grow the MNIST dataset images.
+            ###########################################################
 
-            transform = transforms.Compose([
-                transforms.Resize(img_size),
-                transforms.ToTensor()
-            ])
+            train_loader, test_loader = mnist_loader.grow(img_size)
 
-            train_mnist = datasets.MNIST(root=args.database_root,
-                                         train=True,
-                                         download=True,
-                                         transform=transform)
-
-            train_loader = DataLoader(
-                                dataset=train_mnist,
-                                batch_size=args.train_batch_size,
-                                shuffle=True,
-                                num_workers=1,
-                                pin_memory=True)
-
-            test_mnist = datasets.MNIST(root=args.database_root,
-                                        train=False,
-                                        download=True,
-                                        transform=transform)
-
-            test_loader = DataLoader(
-                            dataset=test_mnist,
-                            batch_size=args.test_batch_size,
-                            shuffle=True,
-                            num_workers=1,
-                            pin_memory=True)
-
+            # Save reference dataset images at the new size.
             save_image(next(iter(test_loader))[0][:20],
                        os.path.join(args.output_dir,
                                     'images',
                                     f'epoch_{epoch}_real.png'))
 
+            ###########################################################
+            # Update the image size.
+            ###########################################################
+
             img_size *= 2
+
+    ###################################################################
 
         if generator.fading:
             generator.fade_alpha += epoch_fade
@@ -298,13 +400,6 @@ def main():
         if generator.fading >= 1:
             generator.fading = False
             discriminator.fading = False
-
-        g_optimizer = optim.Adam(generator.parameters(),
-                                 lr=args.learning_rate,
-                                 betas=(args.beta1, args.beta2))
-        d_optimizer = optim.Adam(discriminator.parameters(),
-                                 lr=args.learning_rate,
-                                 betas=(args.beta1, args.beta2))
 
         train(args=args,
               generator=generator,

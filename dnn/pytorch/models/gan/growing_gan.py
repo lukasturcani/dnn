@@ -7,6 +7,27 @@ def same_padding(size_out,
                  kernel_size,
                  stride,
                  dilation):
+    """
+    Returns SAME padding value for a convolutional layer.
+
+    Parameters
+    ----------
+    size_out : :class:`int`
+        The output size of the image. Assumes height is equal to width.
+
+    size_in : :class:`int`
+        The input size of the image. Assumes height is equal to width.
+
+    kernel_size : :class:`int`
+        The kernel size of the convolutional layer.
+
+    stride : :class:`int`
+        The stride of the convolutional layer.
+
+    dilation : :class:`int`
+        The dilation of the convolutional layer.
+
+    """
 
     t1 = (size_out - 1) * stride
     t2 = (kernel_size - 1) * dilation
@@ -17,6 +38,41 @@ def same_padding(size_out,
 
 
 class Generator(nn.Module):
+    """
+    A generator which progressively adds convolutional blocks.
+
+    Attributes
+    ----------
+    fading : :class:`bool`
+        An indicator to show if the most newly added block is in the
+        process of being faded in. If it is being faded in, it means it
+        is treated as a residual block. This is managed by the
+        network trainer.
+
+    fade_alpha : :class:`float`
+        While the newest block is being faded in, it is treated as a
+        residual block. This is the alpha value for that block. This is
+        managed by the network trainer.
+
+    img_size : :class:`int`
+        The current output image size. Increases as training progresses
+        and more blocks are added.
+
+    img_channels : :class:`int`
+        The number of channels in the output image.
+
+    in_channels : :class:`int`
+        The number of input channels that the next added block will
+        have to take.
+
+    lrelu_alpha : :class:`float`
+        The alpha value for the leaky relu units used by the network.
+
+    blocks : :class:`torch.nn.ModuleList`
+        The convolutional blocks of the network.
+
+    """
+
     def __init__(self,
                  init_img_size,
                  img_channels,
@@ -32,6 +88,25 @@ class Generator(nn.Module):
         self.blocks = nn.ModuleList()
 
     def grow(self, block_params):
+        """
+        Adds another block to the network, increasing its resolution.
+
+        Parameters
+        ----------
+        block_params : :class:`list` of :class:`tuple` of :class:`int`
+            A :class:`list` of the form
+            ``[(kernel_size1, out_channels1),
+               (kernel_size2, out_channels2),
+               (kernel_size3, out_channels3), ...]``. The number of
+            tuples is the number of convolutional layers to be added to
+            the same convolutional block.
+
+        Returns
+        -------
+        None : :class:`NoneType`
+
+        """
+
         block = []
 
         for out_channels, kernel_size in block_params:
@@ -90,12 +165,44 @@ class Generator(nn.Module):
 
 
 class Discriminator(nn.Module):
+    """
+    A dsicriminator which progressively adds convolutional blocks.
+
+    Attributes
+    ----------
+    fading : :class:`bool`
+        An indicator to show if the most newly added block is in the
+        process of being faded in. If it is being faded in, it means it
+        is treated as a residual block. This is managed by the network
+        trainer.
+
+    fade_alpha : :class:`float`
+        While the newest block is being faded in, it is treated as a
+        residual block. This is the alpha value for that block. This
+        is managed by the network trainer.
+
+    img_size : :class:`int`
+        The current output image size. Increases as training progresses
+        and more blocks are added.
+
+    img_channels : :class:`int`
+        The number of channels in the input image.
+
+    lrelu_alpha : :class:`float`
+        The alpha value for the leaky relu units used by the network.
+
+    blocks : :class:`torch.nn.ModuleList`
+        The convolutional blocks of the network.
+
+    """
+
     def __init__(self,
                  init_img_size,
                  img_channels,
                  lrelu_alpha):
         super().__init__()
         self.fading = False
+        self.fade_alpha = 0
         self.img_size = init_img_size
         self.img_channels = img_channels
         self.lrelu_alpha = lrelu_alpha
