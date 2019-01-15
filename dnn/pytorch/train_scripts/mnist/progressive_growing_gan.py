@@ -14,48 +14,55 @@ from dnn.pytorch.models.growing_gan import Discriminator, Generator
 logger = logging.getLogger(__name__)
 
 
-class MNISTLoader:
+def mnist_loaders(args, img_size):
+    """
+    Creates new MNIST loaders of given `img_size`.
+
+    Parameters
+    ----------
+    args : :class:`Namespace`
+        The command line arguments provided to the script.
+
+    img_size : :class:`int`
+        The output image size.
+
+    Returns
+    -------
+    :class:`tuple` of :class:`torch.DataLoader`
+        Returns the train and test data loaders, respectively.
+
     """
 
-    """
+    transform = transforms.Compose([
+        transforms.Resize(img_size),
+        transforms.ToTensor()
+    ])
 
-    def __init__(self, init_img_size):
-        self.init_img_size = init_img_size
+    train_mnist = datasets.MNIST(root=args.database_root,
+                                 train=True,
+                                 download=True,
+                                 transform=transform)
 
-    def grow(self, img_size):
-        """
+    train_loader = DataLoader(
+                        dataset=train_mnist,
+                        batch_size=args.train_batch_size,
+                        shuffle=True,
+                        num_workers=1,
+                        pin_memory=True)
 
-        """
+    test_mnist = datasets.MNIST(root=args.database_root,
+                                train=False,
+                                download=True,
+                                transform=transform)
 
-            transform = transforms.Compose([
-                transforms.Resize(img_size),
-                transforms.ToTensor()
-            ])
+    test_loader = DataLoader(
+                    dataset=test_mnist,
+                    batch_size=args.test_batch_size,
+                    shuffle=True,
+                    num_workers=1,
+                    pin_memory=True)
 
-            train_mnist = datasets.MNIST(root=args.database_root,
-                                         train=True,
-                                         download=True,
-                                         transform=transform)
-
-            train_loader = DataLoader(
-                                dataset=train_mnist,
-                                batch_size=args.train_batch_size,
-                                shuffle=True,
-                                num_workers=1,
-                                pin_memory=True)
-
-            test_mnist = datasets.MNIST(root=args.database_root,
-                                        train=False,
-                                        download=True,
-                                        transform=transform)
-
-            test_loader = DataLoader(
-                            dataset=test_mnist,
-                            batch_size=args.test_batch_size,
-                            shuffle=True,
-                            num_workers=1,
-                            pin_memory=True)
-        return train_loader, test_loader
+    return train_loader, test_loader
 
 
 def train(args,
@@ -305,12 +312,6 @@ def main():
                      lrelu_alpha=args.lrelu_alpha)
 
     ###################################################################
-    # Load the MNIST data.
-    ###################################################################
-
-    mnist_loader =  MNISTLoader(init_img_size=args.init_img_size)
-
-    ###################################################################
     # Train.
     ###################################################################
 
@@ -374,10 +375,10 @@ def main():
             summary(discriminator, d_input_size)
 
             ###########################################################
-            # Grow the MNIST dataset images.
+            # Create new dataset loaders of the correct image size.
             ###########################################################
 
-            train_loader, test_loader = mnist_loader.grow(img_size)
+            train_loader, test_loader = mnist_loaders(img_size)
 
             # Save reference dataset images at the new size.
             save_image(next(iter(test_loader))[0][:20],

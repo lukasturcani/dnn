@@ -95,9 +95,9 @@ class Generator(nn.Module):
         ----------
         block_params : :class:`list` of :class:`tuple` of :class:`int`
             A :class:`list` of the form
-            ``[(kernel_size1, out_channels1),
-               (kernel_size2, out_channels2),
-               (kernel_size3, out_channels3), ...]``. The number of
+            ``[(out_channels1, kernel_size1),
+               (out_channels2, kernel_size2),
+               (out_channels3, kernel_size3), ...]``. The number of
             tuples is the number of convolutional layers to be added to
             the same convolutional block.
 
@@ -209,6 +209,24 @@ class Discriminator(nn.Module):
         self.blocks = nn.ModuleList()
 
     def grow(self, block_params):
+        """
+        Adds another block to the network, increasing its resolution.
+
+        Parameters
+        ----------
+        block_params : :class:`list` of :class:`tuple` of :class:`int`
+            A :class:`list` of the form
+            ``[(out_channels1, kernel_size1),
+               (out_channels2, kernel_size2),
+               (out_channels3, kernel_size3), ...]``. The number of
+            tuples is the number of convolutional layers to be added to
+            the same convolutional block.
+
+        Returns
+        -------
+        None : :class:`NoneType`
+
+        """
 
         if len(self.blocks):
             self.prev_from_rgb = self.from_rgb
