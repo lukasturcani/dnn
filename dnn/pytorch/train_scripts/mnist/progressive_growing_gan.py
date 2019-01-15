@@ -202,7 +202,8 @@ def test(args, generator, discriminator, test_loader, epoch):
     save_image(g_images*0.5 + 0.5,
                os.path.join(args.output_dir,
                             'images',
-                            f'epoch_{epoch}_generated.png'))
+                            f'epoch_{epoch}_generated.png'),
+               nrow=10)
 
 
 def main():
@@ -384,7 +385,8 @@ def main():
             save_image(next(iter(test_loader))[0][:20],
                        os.path.join(args.output_dir,
                                     'images',
-                                    f'epoch_{epoch}_real.png'))
+                                    f'epoch_{epoch}_real.png'),
+                       nrow=10)
 
             ###########################################################
             # Update the image size.
