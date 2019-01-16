@@ -55,7 +55,7 @@ Run with::
 
 Results:
 
-    .. image::
+    .. image:: images/pytorch/pggan.gif
 
 Image Inpainting
 ----------------
