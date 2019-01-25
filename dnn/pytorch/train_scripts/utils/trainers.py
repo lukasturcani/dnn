@@ -3,6 +3,7 @@ import logging
 import torch
 from torch import nn, optim
 from torchvision.utils import save_image
+import torch.nn.functional as F
 
 logger = logging.getLogger(__name__)
 
@@ -292,6 +293,7 @@ class GANTrainer:
                             *self.args.g_noise_shape,
                             device='cuda')
         g_images = self.generator(noise).view(20, *self.img_shape)
+        g_images = F.interpolate(g_images, scale_factor=2)
 
         filename = os.path.join(self.args.img_dir,
                                 f'epoch_{self.epochs}.jpg')
