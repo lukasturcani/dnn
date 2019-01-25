@@ -203,7 +203,7 @@ class GANTrainer:
                        'Discriminator Loss: {:.6f}\t'
                        'Generator Loss: {:.6f}')
                 msg = msg.format(
-                                self.epoch,
+                                self.epochs,
                                 batch_id * len(real_images),
                                 len(train_loader.dataset),
                                 100. * batch_id / len(train_loader),
