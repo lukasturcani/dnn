@@ -78,7 +78,6 @@ def main():
     parser.add_argument('--epochs', default=100, type=int)
     parser.add_argument('--lrelu_alpha', default=0.2, type=float)
     parser.add_argument('--label_smoothing', default=0.3, type=float)
-    parser.add_argument('--momentum', default=0.5, type=float)
     parser.add_argument('--log_interval', default=50, type=int)
     parser.add_argument('--img_dir', default='generated_images')
     parser.add_argument('--saved_img_scale', default=1., type=float)

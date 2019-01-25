@@ -1,80 +1,55 @@
 from torch import nn
 
 
-class Discriminator(nn.Module):
-    def __init__(self,
-                 input_channels,
-                 output_channels,
-                 kernel_sizes,
-                 strides,
-                 paddings,
-                 lrelu_alpha):
-
-        super().__init__()
-
-        params = zip(input_channels,
-                     output_channels,
-                     kernel_sizes,
-                     strides,
-                     paddings)
-
-        convs, batch_norms, activations = [], [], []
-        for i, p in enumerate(params):
-            in_channels, out_channels, kernel_size, stride, padding = p
-
-            conv = nn.Conv2d(in_channels=in_channels,
-                             out_channels=out_channels,
-                             kernel_size=kernel_size,
-                             stride=stride,
-                             padding=padding,
-                             bias=False)
-            convs.append(conv)
-
-            if i != len(input_channels)-1:
-                activation = nn.LeakyReLU(lrelu_alpha)
-                activations.append(activation)
-
-            if i != 0 and i != len(input_channels)-1:
-                batch_norm = nn.BatchNorm2d(num_features=out_channels)
-                batch_norms.append(batch_norm)
-
-        self.convs = nn.ModuleList(convs)
-        self.batch_norms = nn.ModuleList(batch_norms)
-        self.activations = nn.ModuleList(activations)
-
-    def forward(self, x):
-
-        for i in range(len(self.convs)):
-            x = self.convs[i](x)
-
-            if i != 0 and i < len(self.convs)-1:
-                x = self.batch_norms[i-1](x)
-
-            if i < len(self.activations):
-                x = self.activations[i](x)
-
-        return x
-
-
 class Generator(nn.Module):
+    """
+    The DCGAN generator.
+
+    Attributes
+    ----------
+    layers : :class:`torch.Sequential`
+        All the layers of the newtork.
+
+    """
+
     def __init__(self,
-                 input_channels,
-                 output_channels,
+                 channels,
                  kernel_sizes,
                  strides,
                  paddings):
+        """
+        Initializes the generator.
+
+        Parameters
+        ----------
+        channels : :class:`list` of :class:`int`
+            The number of channels in each layer. This includes
+            the input and output layer. As a result this list will be
+            longer by 1 than `kernel_sizes`, `strides` or
+            `paddings`.
+
+        kernel_sizes : :class:`list` of :class:`int`
+            The kernel size of each convolutional layer.
+
+        strides : :class:`list` of :class:`int`
+            The stride of each convoluational layer.
+
+        paddings : :class:`list` of :class:`int`
+            The padding of each convoluational layer.
+
+        """
 
         super().__init__()
+        num_conv_layers = len(kernel_sizes)
+        last_conv_layer_index = num_conv_layers - 1
 
-        params = zip(input_channels,
-                     output_channels,
-                     kernel_sizes,
-                     strides,
-                     paddings)
-
-        convs, batch_norms, activations = [], [], []
-        for i, p in enumerate(params):
-            in_channels, out_channels, kernel_size, stride, padding = p
+        layers = []
+        for i in range(num_conv_layers):
+            in_channels = channels[i]
+            out_channels = channels[i+1]
+            kernel_size = kernel_sizes[i]
+            stride = strides[i]
+            padding = paddings[i]
 
             conv = nn.ConvTranspose2d(in_channels=in_channels,
                                       out_channels=out_channels,
@@ -82,29 +57,90 @@ class Generator(nn.Module):
                                       stride=stride,
                                       padding=padding,
                                       bias=False)
-            convs.append(conv)
+            layers.append(conv)
 
-            if i < len(input_channels)-1:
+            if i < last_conv_layer_index:
                 batch_norm = nn.BatchNorm2d(num_features=out_channels)
-                batch_norms.append(batch_norm)
+                layers.append(batch_norm)
 
             activation = (nn.ReLU(inplace=True) if
-                          i < len(input_channels)-1 else
-                          nn.Tanh())
-            activations.append(activation)
+                          i < last_conv_layer_index else nn.Tanh())
+            layers.append(activation)
 
-        self.convs = nn.ModuleList(convs)
-        self.batch_norms = nn.ModuleList(batch_norms)
-        self.activations = nn.ModuleList(activations)
+        self.layers = nn.Sequential(*layers)
 
     def forward(self, x):
+        return self.layers(x)
 
-        for i in range(len(self.convs)):
-            x = self.convs[i](x)
 
-            if i < len(self.batch_norms):
-                x = self.batch_norms[i](x)
+class Discriminator(nn.Module):
+    """
+    The DCGAN discriminator.
 
-            x = self.activations[i](x)
+    Attributes
+    ----------
+    layers : :class:`torch.Sequential`
+        All the layers of the newtork.
 
-        return x
+    """
+
+    def __init__(self,
+                 channels,
+                 kernel_sizes,
+                 strides,
+                 paddings,
+                 lrelu_alpha):
+        """
+        Initializes the discriminator.
+
+        Parameters
+        ----------
+        channels : :class:`list` of :class:`int`
+            The number of channels in each layer. This includes
+            the input and output layer. As a result this list will be
+            longer by 1 than `kernel_sizes`, `strides` or
+            `paddings`.
+
+        kernel_sizes : :class:`list` of :class:`int`
+            The kernel size of each convolutional layer.
+
+        strides : :class:`list` of :class:`int`
+            The stride of each convoluational layer.
+
+        paddings : :class:`list` of :class:`int`
+            The padding of each convoluational layer.
+
+        """
+
+        super().__init__()
+        num_conv_layers = len(kernel_sizes)
+        last_conv_layer_index = num_conv_layers - 1
+
+        layers = []
+        for i in range(num_conv_layers):
+            in_channels = channels[i]
+            out_channels = channels[i+1]
+            kernel_size = kernel_sizes[i]
+            stride = strides[i]
+            padding = paddings[i]
+
+            conv = nn.Conv2d(in_channels=in_channels,
+                             out_channels=out_channels,
+                             kernel_size=kernel_size,
+                             stride=stride,
+                             padding=padding,
+                             bias=False)
+            layers.append(conv)
+
+            if i < last_conv_layer_index:
+                activation = nn.LeakyReLU(lrelu_alpha)
+                layers.append(activation)
+
+            if i != 0 and i < last_conv_layer_index:
+                batch_norm = nn.BatchNorm2d(num_features=out_channels)
+                layers.append(batch_norm)
+
+        self.layers = nn.Sequential(*layers)
+
+    def forward(self, x):
+        return self.layers(x)
