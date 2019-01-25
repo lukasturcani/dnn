@@ -293,7 +293,7 @@ class GANTrainer:
                             *self.args.g_noise_shape,
                             device='cuda')
         g_images = self.generator(noise).view(20, *self.img_shape)
-        g_images = F.interpolate(g_images, scale_factor=2)
+        g_images = F.interpolate(g_images, scale_factor=2.29)
 
         filename = os.path.join(self.args.img_dir,
                                 f'epoch_{self.epochs}.jpg')
