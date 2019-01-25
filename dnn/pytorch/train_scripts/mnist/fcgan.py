@@ -93,7 +93,7 @@ def main():
                         nargs='+')
 
     parser.add_argument('--g_fc_layers',
-                        default=[256, 512, 1024, 784],
+                        default=[100, 256, 512, 1024, 784],
                         nargs='+',
                         type=int)
 
