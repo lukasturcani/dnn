@@ -34,9 +34,13 @@ class GANTrainer:
     d_optimizer : :class:`torch.Optimizer`
         The discriminator's optimizer.
 
+    img_shape : :class:`list` of :class:`int`
+        The shape of the images the generator outputs.
+        ``[channels, height, width]``.
+
     """
 
-    def __init__(self, generator, discriminator, args):
+    def __init__(self, generator, discriminator, args, img_shape):
         """
         Initializes the trainer.
 
@@ -52,11 +56,16 @@ class GANTrainer:
             A namespace hodling various hyperparameters the trainer
             needs.
 
+        img_shape : :class:`list` of :class:`int`
+            The shape of the images the generator outputs.
+            ``[channels, height, width]``.
+
         """
 
         self.generator = generator
         self.discriminator = discriminator
         self.args = args
+        self.img_shape = img_shape
         self.criterion = nn.BCEWithLogitsLoss()
         self.epochs = 0
 
@@ -88,7 +97,7 @@ class GANTrainer:
 
         # Use generator to make fake images.
         noise = torch.randn(batch_size,
-                            self.args.g_input_size,
+                            *self.args.g_noise_shape,
                             device='cuda')
 
         fake_images = self.generator(noise)
@@ -143,7 +152,7 @@ class GANTrainer:
 
         # Create fake images.
         noise = torch.randn(batch_size,
-                            self.args.g_input_size,
+                            *self.args.g_noise_shape,
                             device='cuda')
 
         fake_images = self.generator(noise)
@@ -233,7 +242,7 @@ class GANTrainer:
 
                 # Generate fake images.
                 noise = torch.randn(batch_size,
-                                    self.args.g_input_size,
+                                    *self.args.g_noise_shape,
                                     device='cuda')
                 fake_images = self.generator(noise)
 
@@ -279,8 +288,10 @@ class GANTrainer:
         logger.info(msg)
 
         # Save some generated images.
-        noise = torch.randn(20, self.args.g_input_size, device='cuda')
-        g_images = self.generator(noise).view(20, 1, 28, 28)
+        noise = torch.randn(20,
+                            *self.args.g_noise_shape,
+                            device='cuda')
+        g_images = self.generator(noise).view(20, *self.img_shape)
 
         filename = os.path.join(self.args.img_dir,
                                 f'epoch_{self.epoch}.png')

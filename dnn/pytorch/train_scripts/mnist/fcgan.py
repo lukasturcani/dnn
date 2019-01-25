@@ -156,7 +156,8 @@ def main():
 
     trainer = GANTrainer(generator=generator,
                          discriminator=discriminator,
-                         args=args)
+                         args=args,
+                         img_shape=[1, 28, 28])
 
     ###################################################################
     # Train.
