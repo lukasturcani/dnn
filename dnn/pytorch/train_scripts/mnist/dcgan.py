@@ -77,6 +77,11 @@ def main():
     parser.add_argument('--img_dir', default='generated_images')
     parser.add_argument('--saved_img_scale', default=1., type=float)
 
+    parser.add_argument('--g_noise_shape',
+                        default=[100, 1, 1],
+                        nargs='+',
+                        type=int)
+
     parser.add_argument('--g_channels',
                         default=[100, 1024, 512, 256, 128, 1],
                         type=int,
