@@ -138,7 +138,7 @@ Run with::
 
 Results:
 
-.. image::
+.. image:: images/pytorch/mnist_fcgan.jpg
 
 
 TensorFlow implementation
