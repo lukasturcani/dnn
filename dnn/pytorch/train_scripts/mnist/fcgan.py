@@ -6,7 +6,7 @@ import torch
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
-from dnn.pytorch.models.fcgan import Generator, Discriminator
+from dnn.pytorch.models.gan.fcgan import Generator, Discriminator
 from dnn.pytorch.train_scripts.utils.trainers import GANTrainer
 
 logger = logging.getLogger(__name__)
