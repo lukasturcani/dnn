@@ -294,5 +294,5 @@ class GANTrainer:
         g_images = self.generator(noise).view(20, *self.img_shape)
 
         filename = os.path.join(self.args.img_dir,
-                                f'epoch_{self.epoch}.png')
+                                f'epoch_{self.epochs}.png')
         save_image(g_images*0.5 + 0.5, filename)
