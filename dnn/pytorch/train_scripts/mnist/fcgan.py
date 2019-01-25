@@ -75,7 +75,7 @@ def main():
     parser.add_argument('--learning_rate', default=0.0002, type=float)
     parser.add_argument('--beta1', default=0.5, type=float)
     parser.add_argument('--beta2', default=0.999, type=float)
-    parser.add_argument('--epochs', default=30, type=int)
+    parser.add_argument('--epochs', default=100, type=int)
     parser.add_argument('--lrelu_alpha', default=0.2, type=float)
     parser.add_argument('--label_smoothing', default=0.3, type=float)
     parser.add_argument('--momentum', default=0.5, type=float)
