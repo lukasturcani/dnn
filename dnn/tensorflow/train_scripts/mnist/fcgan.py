@@ -5,6 +5,7 @@ import numpy as np
 from sklearn.preprocessing import LabelBinarizer
 from torchvision.utils import save_image
 import torch
+import torch.nn.functional as F
 
 from dnn.tensorflow.models.gan.fcgan import model_fn
 
@@ -129,6 +130,8 @@ def sample_generator(params):
                                yield_single_examples=False)
     images = next(sample)['g_images'].reshape(-1, 1, 28, 28)
     images = torch.from_numpy(images)
+    images = F.interpolate(images,
+                           scale_factor=params.saved_img_scale)
     save_image(images, 'generator_sample.jpg', nrow=10)
 
 
@@ -153,6 +156,7 @@ def make_parser():
     parser.add_argument('--label_smoothing', default=0.3, type=float)
     parser.add_argument('--sample_generator', action='store_true')
     parser.add_argument('--beta1', default=0.5, type=float)
+    parser.add_argument('--saved_img_scale', default=1., type=float)
 
     parser.add_argument('--labels',
                         action='store_true',

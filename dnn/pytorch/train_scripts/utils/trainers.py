@@ -292,9 +292,10 @@ class GANTrainer:
         noise = torch.randn(20,
                             *self.args.g_noise_shape,
                             device='cuda')
-        g_images = self.generator(noise).view(20, *self.img_shape)
-        g_images = F.interpolate(g_images, scale_factor=2.29)
+        images = self.generator(noise).view(20, *self.img_shape)
+        images = F.interpolate(images,
+                               scale_factor=self.args.saved_img_scale)
 
         filename = os.path.join(self.args.img_dir,
                                 f'epoch_{self.epochs}.jpg')
-        save_image(g_images*0.5 + 0.5, filename, nrow=10)
+        save_image(images*0.5 + 0.5, filename, nrow=10)
