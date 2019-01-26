@@ -94,7 +94,7 @@ Run with::
 
     $ python -m dnn.pytorch.train_scripts.mnist.dcgan
 
-.. image::
+.. image:: images/pytorch/mnist_dcgan.jpg
 
 TensorFlow implentation
 .......................
