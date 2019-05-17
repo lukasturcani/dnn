@@ -39,12 +39,16 @@ class Generator(nn.Module):
             in_features = fc_layers[i]
             out_features = fc_layers[i+1]
 
-            layer = nn.Linear(in_features=in_features,
-                              out_features=out_features)
+            layer = nn.Linear(
+                in_features=in_features,
+                out_features=out_features
+            )
             layers.append(layer)
 
-            activation = (nn.LeakyReLU(lrelu_alpha) if
-                          i != last_torch_layer_index else nn.Tanh())
+            if i != last_torch_layer_index:
+                activation = nn.LeakyReLU(lrelu_alpha)
+            else:
+                activation = nn.Tanh()
             layers.append(activation)
 
         self.layers = nn.Sequential(*layers)
@@ -91,8 +95,10 @@ class Discriminator(nn.Module):
             in_features = fc_layers[i]
             out_features = fc_layers[i+1]
 
-            layer = nn.Linear(in_features=in_features,
-                              out_features=out_features)
+            layer = nn.Linear(
+                in_features=in_features,
+                out_features=out_features
+            )
             layers.append(layer)
 
             if i != last_torch_layer_index:
