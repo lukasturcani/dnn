@@ -1,5 +1,4 @@
 from torch import nn
-import torch.nn.functional as F
 
 
 class SimpleCNN(nn.Module):
@@ -12,26 +11,19 @@ class SimpleCNN(nn.Module):
 
     Attributes
     ----------
-    convs : :class:`list` of :class:`torch.nn.Conv2d`
-        The convolutional layers of the network.
+    conv_layers : :class:`nn.Sequential`
+        The convoluational layers of the network.
 
-    pools : :class:`list` of :class:`torch.nn.MaxPool2d`
-        The pooling layers of the network.
-
-    fcs : :class:`list` of :class:`torch.nn.Linear`
-        The fully connect layers of the network.
+    fc_layers : :class:`nn.Sequential`
+        The fully connected layers of the network.
 
     fc_input_size : :class:`int`
         The number of features to the first fully connected layer.
 
-    final_activation : :class:`function`
-        The activation function to be applied to the output layer.
-
     """
 
     def __init__(self,
-                 conv_in_channels,
-                 conv_out_channels,
+                 channels,
                  conv_kernel_sizes,
                  conv_strides,
                  conv_paddings,
@@ -44,15 +36,15 @@ class SimpleCNN(nn.Module):
                  fcs,
                  final_activation):
         """
-        Initialize a SimpleCNN.
+        Initialize a :class:`SimpleCNN`.
 
         Parameters
         ----------
-        conv_in_channels : :class:`list` of :class:`int`
-            The number of input channels to each convolutional layer.
-
-        conv_out_channels : :class:`list` of :class:`int`
-            The number of output channels each convolutional layer has.
+        channels : :class:`list` of :class:`int`
+            The number of channels in each layer of the network,
+            including the input and output layer. This means the
+            length of this :class:`list` is larger by 1 than
+            `conv_kernel_sizes`.
 
         conv_kernel_sizes : :class:`list` of :class:`int`
             The kernel size of each convolutional layer.
@@ -89,8 +81,7 @@ class SimpleCNN(nn.Module):
 
         """
 
-        assert (len(conv_in_channels) == len(conv_out_channels) and
-                len(conv_out_channels) == len(conv_kernel_sizes) and
+        assert (len(channels) - 1 == len(conv_kernel_sizes) and
                 len(conv_kernel_sizes) == len(conv_strides) and
                 len(conv_strides) == len(conv_paddings) and
                 len(conv_paddings) == len(conv_dilations) and
@@ -100,66 +91,50 @@ class SimpleCNN(nn.Module):
                 len(pool_paddings) == len(pool_dilations))
 
         super().__init__()
-        self.fc_input_size = fc_input_size
 
-        convs = []
-        conv_params = zip(conv_in_channels,
-                          conv_out_channels,
-                          conv_kernel_sizes,
-                          conv_strides,
-                          conv_paddings,
-                          conv_dilations)
+        conv_layers = []
+        for i in range(len(conv_kernel_sizes)):
+            conv = nn.Conv2d(
+                in_channels=channels[i],
+                out_channels=channels[i+1],
+                kernel_size=conv_kernel_sizes[i],
+                stride=conv_strides[i],
+                padding=conv_paddings[i],
+                dilation=conv_dilations[i]
+            )
+            conv_layers.append(conv)
+            conv_layers.append(nn.ReLU(inplace=True))
 
-        for params in conv_params:
-            (in_channels,
-             out_channels,
-             kernel_size,
-             stride,
-             padding,
-             dilation) = params
-            layer = nn.Conv2d(in_channels=in_channels,
-                              out_channels=out_channels,
-                              kernel_size=kernel_size,
-                              stride=stride,
-                              padding=padding,
-                              dilation=dilation)
-            convs.append(layer)
-        self.convs = nn.ModuleList(convs)
+            pool = nn.MaxPool2d(
+                kernel_size=pool_kernel_sizes[i],
+                stride=pool_strides[i],
+                padding=pool_paddings[i],
+                dilation=pool_dilations[i]
+            )
+            conv_layers.append(pool)
 
-        pools = []
-        pool_params = zip(pool_kernel_sizes,
-                          pool_strides,
-                          pool_paddings,
-                          pool_dilations)
-
-        for p in pool_params:
-            kernel_size, stride, padding, dilation = p
-            layer = nn.MaxPool2d(kernel_size=kernel_size,
-                                 stride=stride,
-                                 padding=padding,
-                                 dilation=dilation)
-            pools.append(layer)
-        self.pools = nn.ModuleList(pools)
+        self.conv_layers = nn.Sequential(*conv_layers)
 
         fc_layers = []
-        in_features = fc_input_size
-        for fc in fcs:
-            layer = nn.Linear(in_features=in_features,
-                              out_features=fc)
-            fc_layers.append(layer)
-            in_features = fc
-        self.fcs = nn.ModuleList(fc_layers)
-        self.final_activation = final_activation
+        self.fc_input_size = in_features = fc_input_size
+        for out_features in fcs:
+            fc_layer = nn.Linear(
+                in_features=in_features,
+                out_features=out_features
+            )
+            fc_layers.append(fc_layer)
+
+            if i != len(fcs)-1:
+                activation = nn.ReLU(inplace=True)
+            else:
+                activation = final_activation
+            fc_layers.append(activation)
+
+            in_features = out_features
+
+        self.fc_layers = nn.Sequential(*fc_layers)
 
     def forward(self, x):
-        for i in range(len(self.convs)):
-            x = F.relu(self.convs[i](x))
-            x = self.pools[i](x)
-
+        x = self.conv_layers(x)
         x = x.view(-1, self.fc_input_size)
-
-        for i in range(len(self.fcs)):
-            x = self.fcs[i](x)
-            x = (F.relu(x) if i != len(self.fcs) - 1 else
-                 self.final_activation(x))
-        return x
+        return self.fc_layers(x)
