@@ -1,12 +1,13 @@
 import argparse
 import logging
+from torch import nn
 import torch.nn.functional as F
 import torch
 from torch import optim
 from torchvision import transforms, datasets
 from torch.utils.data import DataLoader
 
-from dnn.pytorch.models.simple_cnn import SimpleCNN
+from dnn.models.cnn.simple_cnn import SimpleCNN
 
 
 logger = logging.getLogger(__name__)
@@ -193,9 +194,10 @@ def main():
         pool_dilations=args.pool_dilations,
         fc_input_size=args.fc_input_size,
         fcs=args.fcs,
-        final_activation=lambda x: F.log_softmax(x, 1)
+        final_activation=nn.LogSoftmax(1)
     )
     model.to('cuda')
+    logger.debug(model)
 
     # #################################################################
     # Create optimizer.
