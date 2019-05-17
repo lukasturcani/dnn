@@ -50,7 +50,7 @@ Run with::
 
 Results:
 
-.. image:: images/pytorch/pggan.gif
+.. image:: images/pggan.gif
 
 Image Inpainting
 ----------------
@@ -69,7 +69,7 @@ Run with::
 
     $ python -m dnn.train_scripts.mnist.dcgan
 
-.. image:: images/pytorch/mnist_dcgan.jpg
+.. image:: images/mnist_dcgan.jpg
 
 FCGAN
 -----
@@ -83,4 +83,4 @@ Run with::
 
 Results:
 
-.. image:: images/pytorch/mnist_fcgan.jpg
+.. image:: images/mnist_fcgan.jpg
