@@ -51,20 +51,24 @@ class Generator(nn.Module):
             stride = strides[i]
             padding = paddings[i]
 
-            conv = nn.ConvTranspose2d(in_channels=in_channels,
-                                      out_channels=out_channels,
-                                      kernel_size=kernel_size,
-                                      stride=stride,
-                                      padding=padding,
-                                      bias=False)
+            conv = nn.ConvTranspose2d(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                kernel_size=kernel_size,
+                stride=stride,
+                padding=padding,
+                bias=False
+            )
             layers.append(conv)
 
             if i < last_conv_layer_index:
                 batch_norm = nn.BatchNorm2d(num_features=out_channels)
                 layers.append(batch_norm)
 
-            activation = (nn.ReLU(inplace=True) if
-                          i < last_conv_layer_index else nn.Tanh())
+            if i < last_conv_layer_index:
+                activation = nn.ReLU(inplace=True)
+            else:
+                activation = nn.Tanh()
             layers.append(activation)
 
         self.layers = nn.Sequential(*layers)
@@ -124,12 +128,14 @@ class Discriminator(nn.Module):
             stride = strides[i]
             padding = paddings[i]
 
-            conv = nn.Conv2d(in_channels=in_channels,
-                             out_channels=out_channels,
-                             kernel_size=kernel_size,
-                             stride=stride,
-                             padding=padding,
-                             bias=False)
+            conv = nn.Conv2d(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                kernel_size=kernel_size,
+                stride=stride,
+                padding=padding,
+                bias=False
+            )
             layers.append(conv)
 
             if i < last_conv_layer_index:
