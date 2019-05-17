@@ -389,7 +389,7 @@ def main():
     )
     parser.add_argument(
         '--epochs',
-        default=10,
+        default=100,
         type=int
     )
     parser.add_argument(
