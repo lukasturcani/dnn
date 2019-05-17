@@ -28,7 +28,8 @@ def train(args, model, train_loader, optimizer, epoch):
                 batch_id * len(data),
                 len(train_loader.dataset),
                 100. * batch_id / len(train_loader),
-                loss.item())
+                loss.item()
+            )
             logger.info(msg)
 
 
@@ -46,28 +47,32 @@ def test(model, test_loader):
 
     test_loss /= len(test_loader.dataset)
 
-    msg = ('\nTest set: Average loss: {:.4f}, '
-           'Accuracy: {}/{} ({:.0f}%)\n')
-    msg = msg.format(test_loss,
-                     correct,
-                     len(test_loader.dataset),
-                     100. * correct / len(test_loader.dataset))
+    msg = (
+        '\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'
+    )
+    msg = msg.format(
+        test_loss,
+        correct,
+        len(test_loader.dataset),
+        100. * correct / len(test_loader.dataset)
+    )
     logger.info(msg)
 
 
 def main():
+
+    # #################################################################
+    # Make parser.
+    # #################################################################
+
     parser = argparse.ArgumentParser()
     parser.add_argument('--seed', default=4, type=int)
     parser.add_argument('--train_batch_size', default=64, type=int)
     parser.add_argument('--test_batch_size', default=1000, type=int)
     parser.add_argument('--learning_rate', default=0.002, type=float)
     parser.add_argument('--epochs', default=10, type=int)
-    parser.add_argument('--conv_in_channels',
-                        default=[1, 20],
-                        nargs='+',
-                        type=int)
-    parser.add_argument('--conv_out_channels',
-                        default=[20, 50],
+    parser.add_argument('--channels',
+                        default=[1, 20, 50],
                         nargs='+',
                         type=int)
     parser.add_argument('--conv_kernel_sizes',
@@ -117,58 +122,94 @@ def main():
 
     args = parser.parse_args()
 
-    logging_fmt = ('%(asctime)s - %(levelname)s - '
-                   '%(module)s - %(msg)s')
+    # #################################################################
+    # Setup logging.
+    # #################################################################
+
+    logging_fmt = (
+        '%(asctime)s - %(levelname)s - %(module)s - %(msg)s'
+    )
     date_fmt = '%d-%m-%Y %H:%M:%S'
-    logging.basicConfig(level=args.logging_level,
-                        format=logging_fmt,
-                        datefmt=date_fmt)
+    logging.basicConfig(
+        level=args.logging_level,
+        format=logging_fmt,
+        datefmt=date_fmt
+    )
+
+    # #################################################################
+    # Setup random seed.
+    # #################################################################
+
     torch.manual_seed(args.seed)
+
+    # #################################################################
+    # Setup datasets.
+    # #################################################################
 
     transform = transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,))
     ])
-    train_mnist = datasets.MNIST(root=args.database_root,
-                                 train=True,
-                                 download=True,
-                                 transform=transform)
-
+    train_mnist = datasets.MNIST(
+        root=args.database_root,
+        train=True,
+        download=True,
+        transform=transform
+    )
     train_loader = DataLoader(
-                        dataset=train_mnist,
-                        batch_size=args.train_batch_size,
-                        shuffle=True,
-                        num_workers=1,
-                        pin_memory=True)
+        dataset=train_mnist,
+        batch_size=args.train_batch_size,
+        shuffle=True,
+        num_workers=1,
+        pin_memory=True
+    )
 
-    test_mnist = datasets.MNIST(root=args.database_root,
-                                train=False,
-                                transform=transform)
+    test_mnist = datasets.MNIST(
+        root=args.database_root,
+        train=False,
+        transform=transform
+    )
     test_loader = DataLoader(
-                      dataset=test_mnist,
-                      batch_size=args.test_batch_size,
-                      shuffle=True,
-                      num_workers=1,
-                      pin_memory=True)
+        dataset=test_mnist,
+        batch_size=args.test_batch_size,
+        shuffle=True,
+        num_workers=1,
+        pin_memory=True
+    )
 
-    model = SimpleCNN(conv_in_channels=args.conv_in_channels,
-                      conv_out_channels=args.conv_out_channels,
-                      conv_kernel_sizes=args.conv_kernel_sizes,
-                      conv_strides=args.conv_strides,
-                      conv_paddings=args.conv_paddings,
-                      conv_dilations=args.conv_dilations,
-                      pool_kernel_sizes=args.pool_kernel_sizes,
-                      pool_strides=args.pool_strides,
-                      pool_paddings=args.pool_paddings,
-                      pool_dilations=args.pool_dilations,
-                      fc_input_size=args.fc_input_size,
-                      fcs=args.fcs,
-                      final_activation=lambda x: F.log_softmax(x, 1))
+    # #################################################################
+    # Create model.
+    # #################################################################
 
+    model = SimpleCNN(
+        channels=args.channels,
+        conv_kernel_sizes=args.conv_kernel_sizes,
+        conv_strides=args.conv_strides,
+        conv_paddings=args.conv_paddings,
+        conv_dilations=args.conv_dilations,
+        pool_kernel_sizes=args.pool_kernel_sizes,
+        pool_strides=args.pool_strides,
+        pool_paddings=args.pool_paddings,
+        pool_dilations=args.pool_dilations,
+        fc_input_size=args.fc_input_size,
+        fcs=args.fcs,
+        final_activation=lambda x: F.log_softmax(x, 1)
+    )
     model.to('cuda')
-    optimizer = optim.SGD(model.parameters(),
-                          lr=args.learning_rate,
-                          momentum=args.momentum)
+
+    # #################################################################
+    # Create optimizer.
+    # #################################################################
+
+    optimizer = optim.SGD(
+        params=model.parameters(),
+        lr=args.learning_rate,
+        momentum=args.momentum
+    )
+
+    # #################################################################
+    # Train.
+    # #################################################################
 
     for epoch in range(1, args.epochs + 1):
         train(args, model, train_loader, optimizer, epoch)
