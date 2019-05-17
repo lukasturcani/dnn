@@ -172,9 +172,7 @@ def main():
     # Set up logging.
     ###################################################################
 
-    logging_fmt = (
-        '%(asctime)s - %(levelname)s - %(module)s - %(msg)s'
-    )
+    logging_fmt = '%(asctime)s - %(levelname)s - %(module)s - %(msg)s'
     date_fmt = '%d-%m-%Y %H:%M:%S'
     logging.basicConfig(
         level=args.logging_level,
