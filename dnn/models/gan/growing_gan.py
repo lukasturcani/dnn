@@ -2,13 +2,13 @@ from torch import nn
 import torch.nn.functional as F
 
 
-def same_padding(size_out,
-                 size_in,
-                 kernel_size,
-                 stride,
-                 dilation):
+def padding(size_out,
+            size_in,
+            kernel_size,
+            stride,
+            dilation):
     """
-    Returns SAME padding value for a convolutional layer.
+    Returns desired padding value for a convolutional layer.
 
     Parameters
     ----------
@@ -26,6 +26,13 @@ def same_padding(size_out,
 
     dilation : :class:`int`
         The dilation of the convolutional layer.
+
+    Returns
+    -------
+    :class:`tuple` of :class:`int`
+        Returns a :class:`tuple` of the form ``(left, right)``
+        where ``left` and ``right`` are the padding values for the
+        left and right sides of each dimension of the image.
 
     """
 
@@ -110,20 +117,24 @@ class Generator(nn.Module):
         block = []
 
         for out_channels, kernel_size in block_params:
-            padding = same_padding(
-                           size_out=self.img_size,
-                           size_in=self.img_size,
-                           kernel_size=kernel_size,
-                           stride=1,
-                           dilation=1)
+            p = padding(
+                size_out=self.img_size,
+                size_in=self.img_size,
+                kernel_size=kernel_size,
+                stride=1,
+                dilation=1
+            )
             conv = nn.Conv2d(
-                           in_channels=self.in_channels,
-                           out_channels=out_channels,
-                           kernel_size=kernel_size,
-                           stride=1,
-                           padding=padding)
-            nn.init.kaiming_normal_(tensor=conv.weight,
-                                    a=self.lrelu_alpha)
+                in_channels=self.in_channels,
+                out_channels=out_channels,
+                kernel_size=kernel_size,
+                stride=1,
+                padding=p
+            )
+            nn.init.kaiming_normal_(
+                tensor=conv.weight,
+                a=self.lrelu_alpha
+            )
             block.append(conv)
 
             batch_norm = nn.BatchNorm2d(num_features=out_channels)
@@ -138,11 +149,12 @@ class Generator(nn.Module):
             self.prev_to_rgb = self.to_rgb
 
         self.to_rgb = nn.Conv2d(
-                        in_channels=out_channels,
-                        out_channels=self.img_channels,
-                        kernel_size=1,
-                        stride=1,
-                        padding=0)
+            in_channels=out_channels,
+            out_channels=self.img_channels,
+            kernel_size=1,
+            stride=1,
+            padding=0
+        )
 
         self.img_size *= 2
 
@@ -233,31 +245,36 @@ class Discriminator(nn.Module):
 
         conv1_out_channels, _ = block_params[0]
         self.from_rgb = nn.Conv2d(
-                        in_channels=self.img_channels,
-                        out_channels=conv1_out_channels,
-                        kernel_size=1,
-                        stride=1,
-                        padding=0)
+            in_channels=self.img_channels,
+            out_channels=conv1_out_channels,
+            kernel_size=1,
+            stride=1,
+            padding=0
+        )
 
         block = []
 
         in_channels = conv1_out_channels
         for out_channels, kernel_size in block_params:
 
-            padding = same_padding(
-                           size_out=self.img_size,
-                           size_in=self.img_size,
-                           kernel_size=kernel_size,
-                           stride=1,
-                           dilation=1)
+            p = padding(
+                size_out=self.img_size,
+                size_in=self.img_size,
+                kernel_size=kernel_size,
+                stride=1,
+                dilation=1
+            )
             conv = nn.Conv2d(
-                           in_channels=in_channels,
-                           out_channels=out_channels,
-                           kernel_size=kernel_size,
-                           stride=1,
-                           padding=padding)
-            nn.init.kaiming_normal_(tensor=conv.weight,
-                                    a=self.lrelu_alpha)
+                in_channels=in_channels,
+                out_channels=out_channels,
+                kernel_size=kernel_size,
+                stride=1,
+                padding=p
+            )
+            nn.init.kaiming_normal_(
+                tensor=conv.weight,
+                a=self.lrelu_alpha
+            )
             block.append(conv)
 
             batch_norm = nn.BatchNorm2d(num_features=out_channels)
@@ -269,14 +286,18 @@ class Discriminator(nn.Module):
         self.blocks.append(nn.Sequential(*block))
 
         if len(self.blocks) == 1:
-            self.final_conv = nn.Conv2d(in_channels=out_channels,
-                                        out_channels=out_channels,
-                                        kernel_size=self.img_size,
-                                        stride=1,
-                                        padding=0)
+            self.final_conv = nn.Conv2d(
+                in_channels=out_channels,
+                out_channels=out_channels,
+                kernel_size=self.img_size,
+                stride=1,
+                padding=0
+            )
             self.final_activation = nn.LeakyReLU(self.lrelu_alpha)
-            self.fc = nn.Linear(in_features=out_channels,
-                                out_features=1)
+            self.fc = nn.Linear(
+                in_features=out_channels,
+                out_features=1
+            )
 
         self.img_size *= 2
 

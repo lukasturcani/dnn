@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 from torchvision.utils import save_image
 
-from dnn.pytorch.models.gan.growing_gan import Discriminator, Generator
+from dnn.models.gan.growing_gan import Discriminator, Generator
 
 logger = logging.getLogger(__name__)
 
