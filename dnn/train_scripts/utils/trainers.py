@@ -310,4 +310,4 @@ class GANTrainer:
         filename = os.path.join(
             self.args.img_dir, f'epoch_{self.epochs}.jpg'
         )
-        save_image(images*0.5 + 0.5, filename, nrow=10)
+        save_image(images, filename, nrow=10)

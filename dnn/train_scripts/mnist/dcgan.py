@@ -32,7 +32,7 @@ def data_loaders(args):
     transform = transforms.Compose([
         transforms.Resize(64),
         transforms.ToTensor(),
-        lambda image: (image - 0.5) * 2
+        transforms.Normalize((0.1307,), (0.3081,))
     ])
 
     train_mnist = datasets.MNIST(

@@ -191,7 +191,7 @@ def test(args, generator, discriminator, test_loader, epoch):
     )
     prev_g_images, g_images = generator(noise)
     save_image(
-        g_images*0.5 + 0.5,
+        g_images,
         os.path.join(args.img_dir, f'epoch_{epoch}_generated.png')
     )
 
@@ -408,7 +408,8 @@ def main():
 
             transform = transforms.Compose([
                 transforms.Resize(img_size),
-                transforms.ToTensor()
+                transforms.ToTensor(),
+                transforms.Normalize((0.1307,), (0.3081,))
             ])
 
             train_mnist = datasets.MNIST(

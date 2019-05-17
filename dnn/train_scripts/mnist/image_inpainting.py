@@ -515,6 +515,7 @@ def main():
         shutil.rmtree(args.output_dir)
     os.mkdir(args.output_dir)
     os.mkdir(join(args.output_dir, 'images'))
+    os.mkdir(join(args.output_dir, 'models'))
 
     ###################################################################
     # Set random seed.
@@ -610,6 +611,14 @@ def main():
     for epoch in range(args.epochs):
         trainer.train(train_loader)
         trainer.eval(test_loader)
+        filename = (
+            join(args.output_dir, 'models', f'g_epoch_{epoch+1}')
+        )
+        torch.save(autoencoder, filename)
+        filename = (
+            join(args.output_dir, 'models', f'd_epoch_{epoch+1}')
+        )
+        torch.save(discriminator, filename)
 
 
 if __name__ == '__main__':

@@ -36,7 +36,8 @@ def mnist_loaders(args, img_size):
 
     transform = transforms.Compose([
         transforms.Resize(img_size),
-        transforms.ToTensor()
+        transforms.ToTensor(),
+        transforms.Normalize((0.1307,), (0.3081,))
     ])
 
     train_mnist = datasets.MNIST(
@@ -222,7 +223,7 @@ def test(args, generator, discriminator, test_loader, epoch):
     filename = join(
         args.output_dir, 'images', f'epoch_{epoch}_generated.png'
     )
-    save_image(g_images*0.5 + 0.5, filename, nrow=10)
+    save_image(g_images, filename, nrow=10)
 
 
 def main():
