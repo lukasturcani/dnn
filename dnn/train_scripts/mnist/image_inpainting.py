@@ -530,7 +530,7 @@ def main():
     transform = transforms.Compose([
         transforms.Resize(64),
         transforms.ToTensor(),
-        transforms.Normalize((0.1307,), (0.3081,))
+        lambda image: (image - 0.5) * 2
     ])
     train_mnist = datasets.MNIST(
         root=args.database_root,

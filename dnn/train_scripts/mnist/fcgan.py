@@ -31,7 +31,7 @@ def data_loaders(args):
 
     transform = transforms.Compose([
         transforms.ToTensor(),
-        transforms.Normalize((0.1307,), (0.3081,)),
+        lambda image: (image - 0.5) * 2,
         lambda image: image.view(28*28)
     ])
 

@@ -37,7 +37,7 @@ def mnist_loaders(args, img_size):
     transform = transforms.Compose([
         transforms.Resize(img_size),
         transforms.ToTensor(),
-        transforms.Normalize((0.1307,), (0.3081,))
+        lambda image: (image - 0.5) * 2
     ])
 
     train_mnist = datasets.MNIST(
