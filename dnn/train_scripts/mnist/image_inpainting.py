@@ -213,6 +213,7 @@ class GANTrainer:
         self.discriminator.train()
 
         self.mask = mask(train_loader)
+        self.d_loss = self.g_loss = 0
         for batch_id, (real_images, _) in enumerate(train_loader):
             batch_size = real_images.size()[0]
             real_images = real_images.to('cuda')
@@ -322,19 +323,31 @@ class GANTrainer:
         )
         logger.info(msg)
 
-        # Save some generated images.
-        noise = torch.randn(
-            20, *self.args.g_noise_shape, device='cuda'
-        )
-        images = self.generator(noise).view(20, *self.img_shape)
-        images = F.interpolate(
-            images, scale_factor=self.args.saved_img_scale
-        )
-
+        # Save some inpainted images.
+        real_images, _ = next(iter(test_loader))
+        real_images = real_images.to('cuda')
         filename = os.path.join(
-            self.args.img_dir, f'epoch_{self.epochs}.jpg'
+            self.args.output_dir,
+            'images',
+            f'epoch_{self.epochs}_original.jpg'
         )
-        save_image(images*0.5 + 0.5, filename, nrow=10)
+        save_image(real_images, filename, nrow=10)
+
+        masked_images = m*real_images
+        filename = os.path.join(
+            self.args.output_dir,
+            'images',
+            f'epoch_{self.epochs}_masked.jpg'
+        )
+        save_image(masked_images, filename, nrow=10)
+
+        inpainted_images = self.generator(masked_images)
+        filename = os.path.join(
+            self.args.output_dir,
+            'images',
+            f'epoch_{self.epochs}_inpainted.jpg'
+        )
+        save_image(inpainted_images, filename, nrow=10)
 
 
 def main():
@@ -362,6 +375,16 @@ def main():
     parser.add_argument(
         '--learning_rate',
         default=0.002,
+        type=float
+    )
+    parser.add_argument(
+        '--beta1',
+        default=0.5,
+        type=float
+    )
+    parser.add_argument(
+        '--beta2',
+        default=0.999,
         type=float
     )
     parser.add_argument(
@@ -447,6 +470,11 @@ def main():
         type=float
     )
     parser.add_argument(
+        '--label_smoothing',
+        default=0.3,
+        type=float
+    )
+    parser.add_argument(
         '--database_root',
         default='/home/lukas/databases'
     )
@@ -527,7 +555,8 @@ def main():
         batch_size=args.test_batch_size,
         shuffle=True,
         num_workers=1,
-        pin_memory=True
+        pin_memory=True,
+        drop_last=True
     )
 
     ###################################################################
@@ -561,6 +590,7 @@ def main():
         paddings=args.d_paddings,
         lrelu_alpha=args.d_lrelu_alpha
     )
+    discriminator.to('cuda')
 
     ###################################################################
     # Create the trainer.
