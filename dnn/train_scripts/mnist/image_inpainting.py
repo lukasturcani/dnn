@@ -1,6 +1,7 @@
 import argparse
 import logging
 import torch
+from torch import nn
 import torch.nn.functional as F
 from torch import optim
 from torchvision import transforms, datasets
@@ -10,9 +11,11 @@ from os.path import join
 import os
 import shutil
 
-from dnn.pytorch.models.autoencoder.autoencoder import (
+from dnn.models.autoencoder.autoencoder import (
     Encoder, Decoder, AutoEncoder
 )
+from dnn.models.gan.dcgan import Discriminator
+
 
 logger = logging.getLogger(__name__)
 
@@ -24,118 +27,451 @@ def mask(loader):
     return m.to('cuda')
 
 
-def train(args, model, train_loader, optimizer, epoch):
-    model.train()
+class GANTrainer:
+    """
+    Takes care of running the training loop.
 
-    m = mask(train_loader)
-    for batch_id, (data, _) in enumerate(train_loader):
-        data = data.to('cuda')
-        optimizer.zero_grad()
-        output = model(data*m)
-        loss = F.mse_loss(output, data)
-        loss.backward()
-        optimizer.step()
-        if batch_id % args.log_interval == 0:
-            msg = 'Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'
-            msg = msg.format(
-                epoch,
-                batch_id * len(data),
-                len(train_loader.dataset),
-                100. * batch_id / len(train_loader),
-                loss.item()
-            )
-            logger.info(msg)
+    Attributes
+    ----------
+    generator : :class:`torch.Module`
+        The generator network.
 
+    discriminator : :class:`torch.Module`
+        The discriminator network.
 
-def test(args, model, test_loader, epoch):
-    model.eval()
-    i = iter(test_loader)
-    m = mask(test_loader)
-    with torch.no_grad():
-        data, _ = next(i)
-        data = data.to('cuda')
-        output = model(data*m)
-        save_image(
-            tensor=data,
-            filename=join(
-                args.output_dir,
-                'images',
-                f'epoch_{epoch}_original.png'
-            ),
-            nrow=10
+    args : :class:`Namespace`
+        A namespace holding various hyperparameters the trainer needs.
+
+    criterion : :class:`torch.Module`
+        The loss function.
+
+    epochs : :class:`int`
+        The total number of epochs the trainer has gone through.
+
+    g_optimizer : :class:`torch.Optimizer`
+        The generator's optimizer.
+
+    d_optimizer : :class:`torch.Optimizer`
+        The discriminator's optimizer.
+
+    img_shape : :class:`list` of :class:`int`
+        The shape of the images the generator outputs.
+        ``[channels, height, width]``.
+
+    """
+
+    def __init__(self, generator, discriminator, args, img_shape):
+        """
+        Initializes the trainer.
+
+        Parameters
+        ----------
+        generator : :class:`torch.Module`
+            The generator network.
+
+        discriminator : :class:`torch.Module`
+            The discriminator network.
+
+        args : :class:`Namespace`
+            A namespace hodling various hyperparameters the trainer
+            needs.
+
+        img_shape : :class:`list` of :class:`int`
+            The shape of the images the generator outputs.
+            ``[channels, height, width]``.
+
+        """
+
+        self.generator = generator
+        self.discriminator = discriminator
+        self.args = args
+        self.img_shape = img_shape
+        self.criterion = nn.BCEWithLogitsLoss()
+        self.epochs = 0
+
+        self.g_optimizer = optim.Adam(
+            params=generator.parameters(),
+            lr=args.learning_rate,
+            betas=(args.beta1, args.beta2)
         )
-        save_image(
-            tensor=data*m,
-            filename=join(
-                args.output_dir,
-                'images',
-                f'epoch_{epoch}_masked.png'
-            ),
-            nrow=10
+        self.d_optimizer = optim.Adam(
+            params=discriminator.parameters(),
+            lr=args.learning_rate,
+            betas=(args.beta1, args.beta2)
         )
-        save_image(
-            tensor=output,
-            filename=join(
-                args.output_dir,
-                'images',
-                f'epoch_{epoch}_output.png'
-            ),
-            nrow=10
+
+    def d_train_step(self, batch_size, real_images):
+        """
+        Carries out a single training step on the discriminator.
+
+        Parameters
+        ----------
+        batch_size : :class:`int`
+            The batch size.
+
+        real_images : :class:`torch.Tensor`
+            A batch of real images used for this training step.
+
+        Returns
+        -------
+        None : :class:`NoneType`
+
+        """
+
+        inpainted_images = self.generator(real_images*self.mask)
+
+        # Reset accumulated discriminator gradient.
+        self.d_optimizer.zero_grad()
+
+        # Get logits.
+        real_logits = self.discriminator(real_images)
+        inpainted_logits = self.discriminator(inpainted_images)
+
+        # Get target labels for real images.
+        real_target = torch.ones(batch_size, device='cuda')
+        real_target -= self.args.label_smoothing
+        real_target = real_target.view_as(real_logits)
+
+        # Calculate loss on real iamges.
+        d_real_loss = self.criterion(real_logits, real_target)
+
+        # Get target labels for inpainted images.
+        inpainted_target = torch.zeros(batch_size, device='cuda')
+        inpainted_target = inpainted_target.view_as(inpainted_logits)
+
+        # Calculate loss on inpainted images.
+        d_inpainted_loss = self.criterion(
+            inpainted_logits,
+            inpainted_target
         )
+
+        # Calculate total loss.
+        d_loss = d_real_loss + d_inpainted_loss
+        self.d_loss = d_loss.item()
+
+        # Backprop.
+        d_loss.backward()
+        self.d_optimizer.step()
+
+    def g_train_step(self, batch_size, real_images):
+        """
+        Carries out a single training step on the generator.
+
+        Parameters
+        ----------
+        batch_size : :class:`int`
+            The batch size used in this training step.
+
+        real_images : :class:`torch.Tensor`
+            A batch of real images used for this training step.
+
+        Returns
+        -------
+        None : :class:`NoneType`
+
+        """
+
+        # Reset accumulated generator gradient.
+        self.g_optimizer.zero_grad()
+
+        # Create inpainted images.
+        inpainted_images = self.generator(real_images*self.mask)
+
+        # Get logits.
+        inpainted_logits = self.discriminator(inpainted_images)
+
+        # Get target labels for inpainted images.
+        inpainted_target = torch.ones(batch_size, device='cuda')
+        inpainted_target = inpainted_target.view_as(inpainted_logits)
+
+        # Calculate generator loss.
+        g_loss = self.criterion(inpainted_logits, inpainted_target)
+        g_loss += F.mse_loss(inpainted_images, real_images)
+        self.g_loss = g_loss.item()
+
+        # Backprop.
+        g_loss.backward()
+        self.g_optimizer.step()
+
+    def train(self, train_loader):
+        """
+        Trains the generator and discriminator for an epochself.
+
+        Parameters
+        ----------
+        train_loader : :class:`DataLoader`
+            A loader which provides the training set.
+
+        Returns
+        -------
+        None : :class:`NoneType`
+
+        """
+
+        self.epochs += 1
+        self.generator.train()
+        self.discriminator.train()
+
+        self.mask = mask(train_loader)
+        for batch_id, (real_images, _) in enumerate(train_loader):
+            batch_size = real_images.size()[0]
+            real_images = real_images.to('cuda')
+
+            if batch_id % 2 == 0:
+                self.d_train_step(batch_size, real_images)
+            else:
+                self.g_train_step(batch_size, real_images)
+
+            if batch_id % self.args.log_interval == 0:
+                msg = (
+                    'Train Epoch: {} [{}/{} ({:.0f}%)]\t'
+                    'Discriminator Loss: {:.6f}\t'
+                    'Generator Loss: {:.6f}'
+                )
+                msg = msg.format(
+                    self.epochs,
+                    batch_id * len(real_images),
+                    len(train_loader.dataset),
+                    100. * batch_id / len(train_loader),
+                    self.d_loss,
+                    self.g_loss
+                )
+                logger.info(msg)
+
+    def eval(self, test_loader):
+        """
+        Evaluates the GAN performance on a test set.
+
+        Parameters
+        ----------
+        test_loader : :class:`test_loader`
+            A loader which provides the test set.
+
+        Returns
+        -------
+        None : :class:`NoneType`
+
+        """
+
+        self.generator.eval()
+        self.discriminator.eval()
+
+        # Total correct prediction counts.
+        correct = inpainted_correct = real_correct = 0
+
+        m = mask(test_loader)
+        with torch.no_grad():
+            for real_images, _ in test_loader:
+                real_images = real_images.to('cuda')
+                batch_size = real_images.size()[0]
+
+                # Correct prediction counts in the batch.
+                batch_inpainted_correct = batch_real_correct = 0
+
+                # Generate inpainted images.
+                inpainted_images = self.generator(real_images*m)
+
+                # Get predictions on real images.
+                real_logits = self.discriminator(real_images)
+                real_predictions = torch.sigmoid(real_logits).round()
+
+                # Get target labels for real images.
+                real_target = torch.ones(batch_size, device='cuda')
+                real_target = real_target.view_as(real_predictions)
+
+                # Check number of correct predictions on real images.
+                batch_real_correct = (
+                    real_predictions.eq(real_target).sum()
+                )
+                real_correct += batch_real_correct.item()
+
+                # Get predictions on inpainted images.
+                inpainted_logits = self.discriminator(inpainted_images)
+                inpainted_predictions = (
+                    torch.sigmoid(inpainted_logits).round()
+                )
+
+                # Get target labels for inpainted images.
+                inpainted_target = (
+                    torch.zeros(batch_size, device='cuda')
+                )
+                inpainted_target = (
+                    inpainted_target.view_as(inpainted_predictions)
+                )
+
+                # Check number of correct predictions on inpainted.
+                batch_inpainted_correct = (
+                    inpainted_predictions.eq(inpainted_target).sum()
+                )
+                inpainted_correct += batch_inpainted_correct.item()
+
+                # Get total number of correct predictions.
+                correct += real_correct + inpainted_correct
+
+        # Log results.
+        msg = (
+            '\nTest set: Accuracy: {}/{} ({:.0f}%)'
+            '\tInpainted correct: {}\tReal correct: {}\n'
+        )
+        msg = msg.format(
+            correct,
+            2*len(test_loader.dataset),
+            100. * correct / (2*len(test_loader.dataset)),
+            inpainted_correct,
+            real_correct
+        )
+        logger.info(msg)
+
+        # Save some generated images.
+        noise = torch.randn(
+            20, *self.args.g_noise_shape, device='cuda'
+        )
+        images = self.generator(noise).view(20, *self.img_shape)
+        images = F.interpolate(
+            images, scale_factor=self.args.saved_img_scale
+        )
+
+        filename = os.path.join(
+            self.args.img_dir, f'epoch_{self.epochs}.jpg'
+        )
+        save_image(images*0.5 + 0.5, filename, nrow=10)
 
 
 def main():
+
+    ###################################################################
+    # Define command line parameters.
+    ###################################################################
+
     parser = argparse.ArgumentParser()
-    parser.add_argument('--seed', default=4, type=int)
-    parser.add_argument('--train_batch_size', default=64, type=int)
-    parser.add_argument('--test_batch_size', default=200, type=int)
-    parser.add_argument('--learning_rate', default=0.002, type=float)
-    parser.add_argument('--epochs', default=10, type=int)
-    parser.add_argument('--encoder_channels',
-                        default=[1, 256, 256, 512, 1024],
-                        nargs='+',
-                        type=int)
-    parser.add_argument('--encoder_kernel_sizes',
-                        default=[4, 4, 4, 4],
-                        nargs='+',
-                        type=int)
-    parser.add_argument('--encoder_strides',
-                        default=[2, 2, 2, 2],
-                        nargs='+',
-                        type=int)
-    parser.add_argument('--encoder_paddings',
-                        default=[1, 1, 1, 1],
-                        nargs='+',
-                        type=int)
-    parser.add_argument('--decoder_channels',
-                        default=[1024, 512, 256, 256, 1],
-                        nargs='+',
-                        type=int)
-    parser.add_argument('--decoder_kernel_sizes',
-                        default=[4, 4, 4, 4],
-                        nargs='+',
-                        type=int)
-    parser.add_argument('--decoder_strides',
-                        default=[2, 2, 2, 2],
-                        nargs='+',
-                        type=int)
-    parser.add_argument('--decoder_paddings',
-                        default=[1, 1, 1, 1],
-                        nargs='+',
-                        type=int)
-    parser.add_argument('--database_root',
-                        default='/home/lukas/databases')
-    parser.add_argument('--output_dir', default='output')
-    parser.add_argument('--log_interval', default=50, type=int)
-    parser.add_argument('--logging_level',
-                        default=logging.DEBUG,
-                        type=int)
+    parser.add_argument(
+        '--seed',
+        default=4,
+        type=int
+    )
+    parser.add_argument(
+        '--train_batch_size',
+        default=64,
+        type=int
+    )
+    parser.add_argument(
+        '--test_batch_size',
+        default=200,
+        type=int
+    )
+    parser.add_argument(
+        '--learning_rate',
+        default=0.002,
+        type=float
+    )
+    parser.add_argument(
+        '--epochs',
+        default=10,
+        type=int
+    )
+    parser.add_argument(
+        '--encoder_channels',
+        default=[1, 256, 256, 512, 1024],
+        nargs='+',
+        type=int
+    )
+    parser.add_argument(
+        '--encoder_kernel_sizes',
+        default=[4, 4, 4, 4],
+        nargs='+',
+        type=int
+    )
+    parser.add_argument(
+        '--encoder_strides',
+        default=[2, 2, 2, 2],
+        nargs='+',
+        type=int
+    )
+    parser.add_argument(
+        '--encoder_paddings',
+        default=[1, 1, 1, 1],
+        nargs='+',
+        type=int
+    )
+    parser.add_argument(
+        '--decoder_channels',
+        default=[1024, 512, 256, 256, 1],
+        nargs='+',
+        type=int
+    )
+    parser.add_argument(
+        '--decoder_kernel_sizes',
+        default=[4, 4, 4, 4],
+        nargs='+',
+        type=int
+    )
+    parser.add_argument(
+        '--decoder_strides',
+        default=[2, 2, 2, 2],
+        nargs='+',
+        type=int
+    )
+    parser.add_argument(
+        '--decoder_paddings',
+        default=[1, 1, 1, 1],
+        nargs='+',
+        type=int
+    )
+    parser.add_argument(
+        '--d_channels',
+        default=[1, 128, 256, 512, 1024, 1],
+        nargs='+',
+        type=int
+    )
+    parser.add_argument(
+        '--d_kernel_sizes',
+        default=[4, 4, 4, 4, 4],
+        nargs='+',
+        type=int
+    )
+    parser.add_argument(
+        '--d_strides',
+        default=[2, 2, 2, 2, 1],
+        nargs='+',
+        type=int
+    )
+    parser.add_argument(
+        '--d_paddings',
+        default=[1, 1, 1, 1, 0],
+        nargs='+',
+        type=int
+    )
+    parser.add_argument(
+        '--d_lrelu_alpha',
+        default=0.2,
+        type=float
+    )
+    parser.add_argument(
+        '--database_root',
+        default='/home/lukas/databases'
+    )
+    parser.add_argument(
+        '--output_dir',
+        default='output'
+    )
+    parser.add_argument(
+        '--log_interval',
+        default=50,
+        type=int
+    )
+    parser.add_argument(
+        '--logging_level',
+        default=logging.DEBUG,
+        type=int
+    )
 
     args = parser.parse_args()
 
-    logging_fmt = (
-        '%(asctime)s - %(levelname)s - %(module)s - %(msg)s'
-    )
+    ###################################################################
+    # Set up logging.
+    ###################################################################
+
+    logging_fmt = '%(asctime)s - %(levelname)s - %(module)s - %(msg)s'
     date_fmt = '%d-%m-%Y %H:%M:%S'
     logging.basicConfig(
         level=args.logging_level,
@@ -143,12 +479,24 @@ def main():
         datefmt=date_fmt
     )
 
+    ###################################################################
+    # Set up output directory.
+    ###################################################################
+
     if os.path.exists(args.output_dir):
         shutil.rmtree(args.output_dir)
     os.mkdir(args.output_dir)
     os.mkdir(join(args.output_dir, 'images'))
 
+    ###################################################################
+    # Set random seed.
+    ###################################################################
+
     torch.manual_seed(args.seed)
+
+    ###################################################################
+    # Set up data lodaers.
+    ###################################################################
 
     transform = transforms.Compose([
         transforms.Resize(64),
@@ -182,6 +530,10 @@ def main():
         pin_memory=True
     )
 
+    ###################################################################
+    # Create the generator.
+    ###################################################################
+
     encoder = Encoder(
         channels=args.encoder_channels,
         kernel_sizes=args.encoder_kernel_sizes,
@@ -198,14 +550,36 @@ def main():
     autoencoder.to('cuda')
     logging.debug(autoencoder)
 
-    optimizer = optim.Adam(
-        params=autoencoder.parameters(),
-        lr=args.learning_rate
+    ###################################################################
+    # Create the discriminator.
+    ###################################################################
+
+    discriminator = Discriminator(
+        channels=args.d_channels,
+        kernel_sizes=args.d_kernel_sizes,
+        strides=args.d_strides,
+        paddings=args.d_paddings,
+        lrelu_alpha=args.d_lrelu_alpha
     )
 
-    for epoch in range(1, args.epochs+1):
-        train(args, autoencoder, train_loader, optimizer, epoch)
-        test(args, autoencoder, test_loader, epoch)
+    ###################################################################
+    # Create the trainer.
+    ###################################################################
+
+    trainer = GANTrainer(
+        generator=autoencoder,
+        discriminator=discriminator,
+        args=args,
+        img_shape=[1, 64, 64]
+    )
+
+    ###################################################################
+    # Train.
+    ###################################################################
+
+    for epoch in range(args.epochs):
+        trainer.train(train_loader)
+        trainer.eval(test_loader)
 
 
 if __name__ == '__main__':
