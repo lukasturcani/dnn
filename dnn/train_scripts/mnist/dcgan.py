@@ -67,6 +67,11 @@ def data_loaders(args):
 
 
 def main():
+
+    ###################################################################
+    # Define command line parameters.
+    ###################################################################
+
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '--seed',

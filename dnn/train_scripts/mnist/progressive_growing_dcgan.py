@@ -197,6 +197,11 @@ def test(args, generator, discriminator, test_loader, epoch):
 
 
 def main():
+
+    ###################################################################
+    # Define command line parameters.
+    ###################################################################
+
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '--seed',
@@ -317,9 +322,17 @@ def main():
     )
     args = parser.parse_args()
 
+    ###################################################################
+    # Set up the output directory.
+    ###################################################################
+
     if os.path.exists(args.img_dir):
         shutil.rmtree(args.img_dir)
     os.mkdir(args.img_dir)
+
+    ###################################################################
+    # Set up logging.
+    ###################################################################
 
     logging_fmt = '%(asctime)s - %(levelname)s - %(module)s - %(msg)s'
     date_fmt = '%d-%m-%Y %H:%M:%S'
@@ -328,9 +341,22 @@ def main():
         format=logging_fmt,
         datefmt=date_fmt
     )
+
+    ###################################################################
+    # Set random seed.
+    ###################################################################
+
     torch.manual_seed(args.seed)
 
+    ###################################################################
+    # Build the network.
+    ###################################################################
+
     gan = GrowingGan(args=args)
+
+    ###################################################################
+    # Define network parameters.
+    ###################################################################
 
     epoch_params = [
         (4, 1.0, 1),
@@ -363,6 +389,10 @@ def main():
         (64, 1.0, 1),
         (64, 1.0, 1)
     ]
+
+    ###################################################################
+    # Train.
+    ###################################################################
 
     previous_size = None
     for epoch, e_params in enumerate(epoch_params, 1):
