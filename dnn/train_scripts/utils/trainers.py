@@ -70,13 +70,16 @@ class GANTrainer:
         self.criterion = nn.BCEWithLogitsLoss()
         self.epochs = 0
 
-        self.g_optimizer = optim.Adam(generator.parameters(),
-                                      lr=args.learning_rate,
-                                      betas=(args.beta1, args.beta2))
-
-        self.d_optimizer = optim.Adam(discriminator.parameters(),
-                                      lr=args.learning_rate,
-                                      betas=(args.beta1, args.beta2))
+        self.g_optimizer = optim.Adam(
+            params=generator.parameters(),
+            lr=args.learning_rate,
+            betas=(args.beta1, args.beta2)
+        )
+        self.d_optimizer = optim.Adam(
+            params=discriminator.parameters(),
+            lr=args.learning_rate,
+            betas=(args.beta1, args.beta2)
+        )
 
     def d_train_step(self, batch_size, real_images):
         """
@@ -97,9 +100,9 @@ class GANTrainer:
         """
 
         # Use generator to make fake images.
-        noise = torch.randn(batch_size,
-                            *self.args.g_noise_shape,
-                            device='cuda')
+        noise = torch.randn(
+            batch_size, *self.args.g_noise_shape, device='cuda'
+        )
 
         fake_images = self.generator(noise)
 
@@ -152,9 +155,9 @@ class GANTrainer:
         self.g_optimizer.zero_grad()
 
         # Create fake images.
-        noise = torch.randn(batch_size,
-                            *self.args.g_noise_shape,
-                            device='cuda')
+        noise = torch.randn(
+            batch_size, *self.args.g_noise_shape, device='cuda'
+        )
 
         fake_images = self.generator(noise)
 
@@ -200,16 +203,19 @@ class GANTrainer:
             self.g_train_step(batch_size)
 
             if batch_id % self.args.log_interval == 0:
-                msg = ('Train Epoch: {} [{}/{} ({:.0f}%)]\t'
-                       'Discriminator Loss: {:.6f}\t'
-                       'Generator Loss: {:.6f}')
+                msg = (
+                    'Train Epoch: {} [{}/{} ({:.0f}%)]\t'
+                    'Discriminator Loss: {:.6f}\t'
+                    'Generator Loss: {:.6f}'
+                )
                 msg = msg.format(
-                                self.epochs,
-                                batch_id * len(real_images),
-                                len(train_loader.dataset),
-                                100. * batch_id / len(train_loader),
-                                self.d_loss,
-                                self.g_loss)
+                    self.epochs,
+                    batch_id * len(real_images),
+                    len(train_loader.dataset),
+                    100. * batch_id / len(train_loader),
+                    self.d_loss,
+                    self.g_loss
+                )
                 logger.info(msg)
 
     def eval(self, test_loader):
@@ -242,9 +248,9 @@ class GANTrainer:
                 batch_fake_correct = batch_real_correct = 0
 
                 # Generate fake images.
-                noise = torch.randn(batch_size,
-                                    *self.args.g_noise_shape,
-                                    device='cuda')
+                noise = torch.randn(
+                    batch_size, *self.args.g_noise_shape, device='cuda'
+                )
                 fake_images = self.generator(noise)
 
                 # Get predictions on real images.
@@ -256,9 +262,9 @@ class GANTrainer:
                 real_target = real_target.view_as(real_predictions)
 
                 # Check number of correct predictions on real images.
-                batch_real_correct = (real_predictions
-                                      .eq(real_target)
-                                      .sum())
+                batch_real_correct = (
+                    real_predictions.eq(real_target).sum()
+                )
                 real_correct += batch_real_correct.item()
 
                 # Get predictions on fake images.
@@ -270,32 +276,38 @@ class GANTrainer:
                 fake_target = fake_target.view_as(fake_predictions)
 
                 # Check number of correct predictions on fake.
-                batch_fake_correct = (fake_predictions
-                                      .eq(fake_target)
-                                      .sum())
+                batch_fake_correct = (
+                    fake_predictions.eq(fake_target).sum()
+                )
                 fake_correct += batch_fake_correct.item()
 
                 # Get total number of correct predictions.
                 correct += real_correct + fake_correct
 
         # Log results.
-        msg = ('\nTest set: Accuracy: {}/{} ({:.0f}%)'
-               '\tFake correct: {}\tReal correct: {}\n')
-        msg = msg.format(correct,
-                         2*len(test_loader.dataset),
-                         100. * correct / (2*len(test_loader.dataset)),
-                         fake_correct,
-                         real_correct)
+        msg = (
+            '\nTest set: Accuracy: {}/{} ({:.0f}%)'
+            '\tFake correct: {}\tReal correct: {}\n'
+        )
+        msg = msg.format(
+            correct,
+            2*len(test_loader.dataset),
+            100. * correct / (2*len(test_loader.dataset)),
+            fake_correct,
+            real_correct
+        )
         logger.info(msg)
 
         # Save some generated images.
-        noise = torch.randn(20,
-                            *self.args.g_noise_shape,
-                            device='cuda')
+        noise = torch.randn(
+            20, *self.args.g_noise_shape, device='cuda'
+        )
         images = self.generator(noise).view(20, *self.img_shape)
-        images = F.interpolate(images,
-                               scale_factor=self.args.saved_img_scale)
+        images = F.interpolate(
+            images, scale_factor=self.args.saved_img_scale
+        )
 
-        filename = os.path.join(self.args.img_dir,
-                                f'epoch_{self.epochs}.jpg')
+        filename = os.path.join(
+            self.args.img_dir, f'epoch_{self.epochs}.jpg'
+        )
         save_image(images*0.5 + 0.5, filename, nrow=10)
