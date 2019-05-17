@@ -67,60 +67,67 @@ def main():
     # #################################################################
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--seed', default=4, type=int)
-    parser.add_argument('--train_batch_size', default=64, type=int)
-    parser.add_argument('--test_batch_size', default=1000, type=int)
-    parser.add_argument('--learning_rate', default=0.002, type=float)
-    parser.add_argument('--epochs', default=10, type=int)
-    parser.add_argument('--channels',
-                        default=[1, 20, 50],
-                        nargs='+',
-                        type=int)
-    parser.add_argument('--conv_kernel_sizes',
-                        default=[5, 5],
-                        nargs='+',
-                        type=int)
-    parser.add_argument('--conv_strides',
-                        default=[1, 1],
-                        nargs='+',
-                        type=int)
-    parser.add_argument('--conv_paddings',
-                        default=[0, 0],
-                        nargs='+',
-                        type=int)
-    parser.add_argument('--conv_dilations',
-                        default=[1, 1],
-                        nargs='+',
-                        type=int)
-    parser.add_argument('--pool_kernel_sizes',
-                        default=[2, 2],
-                        nargs='+',
-                        type=int)
-    parser.add_argument('--pool_strides',
-                        default=[2, 2],
-                        nargs='+',
-                        type=int)
-    parser.add_argument('--pool_paddings',
-                        default=[0, 0],
-                        nargs='+',
-                        type=int)
-    parser.add_argument('--pool_dilations',
-                        default=[1, 1],
-                        nargs='+',
-                        type=int)
-    parser.add_argument('--fc_input_size', default=4*4*50, type=int)
-    parser.add_argument('--fcs',
-                        default=[500, 10],
-                        nargs='+',
-                        type=int)
-    parser.add_argument('--momentum', default=0.5, type=float)
-    parser.add_argument('--logging_level',
-                        default=logging.DEBUG,
-                        type=int)
-    parser.add_argument('--log_interval', default=50, type=int)
-    parser.add_argument('--database_root',
-                        default='/home/lukas/databases')
 
+    parser.add_argument(
+        '--seed', default=4, type=int
+    )
+    parser.add_argument(
+        '--database_root', default='/home/lukas/databases'
+    )
+    parser.add_argument(
+        '--train_batch_size', default=64, type=int
+    )
+    parser.add_argument(
+        '--test_batch_size', default=1000, type=int
+    )
+    parser.add_argument(
+        '--learning_rate', default=0.002, type=float
+    )
+    parser.add_argument(
+        '--momentum', default=0.5, type=float
+    )
+    parser.add_argument(
+        '--epochs', default=10, type=int
+    )
+    parser.add_argument(
+        '--logging_level', default=logging.DEBUG, type=int
+    )
+    parser.add_argument(
+        '--log_interval', default=50, type=int
+    )
+    parser.add_argument(
+        '--channels', default=[1, 20, 50], nargs='+', type=int
+    )
+    parser.add_argument(
+        '--conv_kernel_sizes', default=[5, 5], nargs='+', type=int
+    )
+    parser.add_argument(
+        '--conv_strides', default=[1, 1], nargs='+', type=int
+    )
+    parser.add_argument(
+        '--conv_paddings', default=[0, 0], nargs='+', type=int
+    )
+    parser.add_argument(
+        '--conv_dilations', default=[1, 1], nargs='+', type=int
+    )
+    parser.add_argument(
+        '--pool_kernel_sizes', default=[2, 2], nargs='+', type=int
+    )
+    parser.add_argument(
+        '--pool_strides', default=[2, 2], nargs='+', type=int
+    )
+    parser.add_argument(
+        '--pool_paddings', default=[0, 0], nargs='+', type=int
+    )
+    parser.add_argument(
+        '--pool_dilations', default=[1, 1], nargs='+', type=int
+    )
+    parser.add_argument(
+        '--fc_input_size', default=4*4*50, type=int
+    )
+    parser.add_argument(
+        '--fcs', default=[500, 10], nargs='+', type=int
+    )
     args = parser.parse_args()
 
     # #################################################################
