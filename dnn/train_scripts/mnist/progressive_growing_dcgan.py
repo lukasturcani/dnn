@@ -1,6 +1,7 @@
 import logging
 import argparse
 import os
+from os.path import join
 import shutil
 import torch
 from torch import optim, nn
@@ -191,8 +192,10 @@ def test(args, generator, discriminator, test_loader, epoch):
     )
     prev_g_images, g_images = generator(noise)
     save_image(
-        g_images,
-        os.path.join(args.img_dir, f'epoch_{epoch}_generated.png')
+        tensor=g_images,
+        filename=join(args.img_dir, f'epoch_{epoch}_generated.png'),
+        normalize=True,
+        scale_each=True
     )
 
 
@@ -441,8 +444,11 @@ def main():
             )
 
             save_image(
-                next(iter(test_loader))[0][:20],
-                os.path.join(args.img_dir, f'epoch_{epoch}_real.png')
+                tensor=next(iter(test_loader))[0][:20],
+                filename=join(args.img_dir, f'epoch_{epoch}_real.png'),
+                normalize=True,
+                scale_each=True,
+                nrow=10
             )
 
         g_optimizer = optim.Adam(

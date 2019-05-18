@@ -222,7 +222,13 @@ def test(args, generator, discriminator, test_loader, epoch):
     filename = join(
         args.output_dir, 'images', f'epoch_{epoch}_generated.png'
     )
-    save_image(g_images, filename, nrow=10)
+    save_image(
+        tensor=g_images,
+        filename=filename,
+        normalize=True,
+        scale_each=True,
+        nrow=10
+    )
 
 
 def main():
@@ -468,8 +474,10 @@ def main():
                 f'epoch_{epoch}_real.png'
             )
             save_image(
-                next(iter(test_loader))[0][:20],
-                filename,
+                tensor=next(iter(test_loader))[0][:20],
+                filename=filename,
+                normalize=True,
+                scale_each=True,
                 nrow=10
             )
 

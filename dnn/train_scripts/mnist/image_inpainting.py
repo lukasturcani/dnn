@@ -331,7 +331,13 @@ class GANTrainer:
             'images',
             f'epoch_{self.epochs}_original.jpg'
         )
-        save_image(real_images, filename, nrow=10)
+        save_image(
+            tensor=real_images,
+            filename=filename,
+            normalize=True,
+            scale_each=True,
+            nrow=10
+        )
 
         masked_images = m*real_images
         filename = os.path.join(
@@ -339,7 +345,13 @@ class GANTrainer:
             'images',
             f'epoch_{self.epochs}_masked.jpg'
         )
-        save_image(masked_images, filename, nrow=10)
+        save_image(
+            tensor=masked_images,
+            filename=filename,
+            normalize=True,
+            scale_each=True,
+            nrow=10
+        )
 
         inpainted_images = self.generator(masked_images)
         filename = os.path.join(
@@ -347,7 +359,13 @@ class GANTrainer:
             'images',
             f'epoch_{self.epochs}_inpainted.jpg'
         )
-        save_image(inpainted_images, filename, nrow=10)
+        save_image(
+            tensor=inpainted_images,
+            filename=filename,
+            normalize=True,
+            scale_each=True,
+            nrow=10
+        )
 
 
 def main():
