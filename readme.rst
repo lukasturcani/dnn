@@ -58,7 +58,12 @@ Image Inpainting
 This is a task where the generator is provided with an image that
 is missing some pixels and it is asked to fill them in. In this
 example, I cover up the bottom half of MNIST images and get the
-generator to fill them in.
+generator to fill them in. The generator used an autoencoder 
+architecture.
+
+Run with::
+
+    $ python -m dnn.train_scripts.mnist.image_inpainting
 
 DCGAN
 -----

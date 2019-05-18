@@ -20,11 +20,16 @@ from dnn.models.gan.dcgan import Discriminator
 logger = logging.getLogger(__name__)
 
 
-def mask(loader):
+def masks(loader):
     batch_size = loader.batch_sampler.batch_size
-    m = torch.zeros(batch_size, 1, 64, 64)
-    m[:, :, :32, :] = 1
-    return m.to('cuda')
+    # m1 sets values to 0.
+    m1 = torch.zeros(batch_size, 1, 64, 64)
+    m1[:, :, :32, :] = 1
+    # m2 gets subtracted to set the masked values to -1.
+    m2 = torch.zeros(batch_size, 1, 64, 64)
+    m2[:, :, 32:, :] = 1
+
+    return m1.to('cuda'), m2.to('cuda')
 
 
 class GANTrainer:
@@ -118,7 +123,8 @@ class GANTrainer:
 
         """
 
-        inpainted_images = self.generator(real_images*self.mask)
+        masked_images = real_images*self.m1 - self.m2
+        inpainted_images = self.generator(masked_images)
 
         # Reset accumulated discriminator gradient.
         self.d_optimizer.zero_grad()
@@ -175,7 +181,8 @@ class GANTrainer:
         self.g_optimizer.zero_grad()
 
         # Create inpainted images.
-        inpainted_images = self.generator(real_images*self.mask)
+        masked_images = real_images*self.m1 - self.m2
+        inpainted_images = self.generator(masked_images)
 
         # Get logits.
         inpainted_logits = self.discriminator(inpainted_images)
@@ -212,7 +219,7 @@ class GANTrainer:
         self.generator.train()
         self.discriminator.train()
 
-        self.mask = mask(train_loader)
+        self.m1, self.m2 = masks(train_loader)
         self.d_loss = self.g_loss = 0
         for batch_id, (real_images, _) in enumerate(train_loader):
             batch_size = real_images.size()[0]
@@ -260,7 +267,7 @@ class GANTrainer:
         # Total correct prediction counts.
         correct = inpainted_correct = real_correct = 0
 
-        m = mask(test_loader)
+        m1, m2 = masks(test_loader)
         with torch.no_grad():
             for real_images, _ in test_loader:
                 real_images = real_images.to('cuda')
@@ -270,7 +277,7 @@ class GANTrainer:
                 batch_inpainted_correct = batch_real_correct = 0
 
                 # Generate inpainted images.
-                inpainted_images = self.generator(real_images*m)
+                inpainted_images = self.generator(real_images*m1 - m2)
 
                 # Get predictions on real images.
                 real_logits = self.discriminator(real_images)
@@ -339,7 +346,7 @@ class GANTrainer:
             nrow=10
         )
 
-        masked_images = m*real_images
+        masked_images = m1*real_images - m2
         filename = os.path.join(
             self.args.output_dir,
             'images',
