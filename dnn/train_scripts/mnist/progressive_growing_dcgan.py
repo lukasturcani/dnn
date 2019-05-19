@@ -164,7 +164,8 @@ def test(args, generator, discriminator, test_loader, epoch):
         tensor=g_images,
         filename=join(args.img_dir, f'epoch_{epoch}_generated.png'),
         normalize=True,
-        scale_each=True
+        scale_each=True,
+        nrow=10
     )
 
 
