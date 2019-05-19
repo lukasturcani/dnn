@@ -10,7 +10,7 @@ class Generator(nn.Module):
 
         super().__init__()
         self.phase = 0
-        self.image_channels = channels[0]
+        self.image_channels = channels[-1]
 
         self.convs = nn.ModuleList()
         self.batch_norms = nn.ModuleList()

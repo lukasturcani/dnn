@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 from torchvision.utils import save_image
 
-from dnn.pytorch.models.growing_dcgan import GrowingGan
+from dnn.models.gan.growing_dcgan import GrowingGan
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +38,7 @@ def train(args,
 
         # Create fake images.
         noise = torch.randn(
-            batch_size, args.g_input_channels[0], 1, 1, device='cuda'
+            batch_size, args.g_channels[0], 1, 1, device='cuda'
         )
         fake_images = generator(noise)
 
@@ -76,7 +76,7 @@ def train(args,
 
         g_optimizer.zero_grad()
         noise = torch.randn(
-            batch_size, args.g_input_channels[0], 1, 1, device='cuda'
+            batch_size, args.g_channels[0], 1, 1, device='cuda'
         )
 
         fake_images = generator(noise)
@@ -120,7 +120,7 @@ def test(args, generator, discriminator, test_loader, epoch):
 
             noise = torch.randn(
                 batch_size,
-                args.g_input_channels[0],
+                args.g_channels[0],
                 1,
                 1,
                 device='cuda'
@@ -157,7 +157,7 @@ def test(args, generator, discriminator, test_loader, epoch):
     logger.info(msg)
 
     noise = torch.randn(
-        20, args.g_input_channels[0], 1, 1, device='cuda'
+        20, args.g_channels[0], 1, 1, device='cuda'
     )
     g_images = generator(noise)
     save_image(
@@ -226,7 +226,7 @@ def main():
     )
     parser.add_argument(
         '--g_channels',
-        default=[100, 64*8, 64*4, 64*2, 64, 32],
+        default=[100, 64*8, 64*4, 64*2, 64, 32, 1],
         type=int,
         nargs='+'
     )
