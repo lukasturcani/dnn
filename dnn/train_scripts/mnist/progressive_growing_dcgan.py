@@ -5,7 +5,6 @@ from os.path import join
 import shutil
 import torch
 from torch import optim, nn
-import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 from torchvision.utils import save_image
@@ -34,15 +33,14 @@ def train(args,
         real_images = (real_images - 0.5) / 0.5
         batch_size = real_images.size()[0]
 
-        # Reshape real images.
+        # Get real images.
         real_images = real_images.to('cuda')
-        prev_real_images = F.interpolate(real_images, scale_factor=0.5)
 
         # Create fake images.
         noise = torch.randn(
             batch_size, args.g_input_channels[0], 1, 1, device='cuda'
         )
-        prev_fake_images, fake_images = generator(noise)
+        fake_images = generator(noise)
 
         ###############################################################
         # Train the discriminator.
@@ -50,14 +48,8 @@ def train(args,
 
         d_optimizer.zero_grad()
 
-        prev_real_logits, real_logits = discriminator(
-            prev_real_images,
-            real_images
-        )
-        prev_fake_logits, fake_logits = discriminator(
-            prev_fake_images,
-            fake_images
-        )
+        real_logits = discriminator(real_images)
+        fake_logits = discriminator(fake_images)
 
         real_target = torch.ones(batch_size, device='cuda')
         real_target -= args.label_smoothing
@@ -69,12 +61,6 @@ def train(args,
         d_fake_loss = criterion(fake_logits, fake_target)
 
         d_loss = d_real_loss + d_fake_loss
-
-        if prev_real_logits is not None:
-            d_prev_real_loss = criterion(prev_real_logits, real_target)
-            d_prev_fake_loss = criterion(prev_fake_logits, fake_target)
-            d_prev_loss = d_prev_real_loss + d_prev_fake_loss
-            d_loss = fade_alpha*d_loss + (1-fade_alpha)*d_prev_loss
 
         d_loss.backward()
         d_optimizer.step()
@@ -93,19 +79,12 @@ def train(args,
             batch_size, args.g_input_channels[0], 1, 1, device='cuda'
         )
 
-        prev_fake_images, fake_images = generator(noise)
-        prev_fake_logits, fake_logits = discriminator(
-            prev_fake_images,
-            fake_images
-        )
+        fake_images = generator(noise)
+        fake_logits = discriminator(fake_images)
 
         fake_target = torch.ones(batch_size, device='cuda')
         fake_target = fake_target.view_as(fake_logits)
         g_loss = criterion(fake_logits, fake_target)
-
-        if prev_fake_logits is not None:
-            prev_g_loss = criterion(prev_fake_logits, fake_target)
-            g_loss = fade_alpha*g_loss + (1-fade_alpha)*prev_g_loss
 
         g_loss.backward()
         g_optimizer.step()
@@ -138,10 +117,6 @@ def test(args, generator, discriminator, test_loader, epoch):
             batch_size = real_images.size()[0]
 
             real_images = real_images.to('cuda')
-            prev_real_images = F.interpolate(
-                real_images,
-                scale_factor=0.5
-            )
 
             noise = torch.randn(
                 batch_size,
@@ -150,22 +125,16 @@ def test(args, generator, discriminator, test_loader, epoch):
                 1,
                 device='cuda'
             )
-            prev_fake_images, fake_images = generator(noise)
 
-            prev_real_logits, real_logits = discriminator(
-                prev_real_images,
-                real_images
-            )
+            fake_images = generator(noise)
+            real_logits = discriminator(real_images)
             real_predictions = torch.sigmoid(real_logits).round()
             real_target = torch.ones(batch_size, device='cuda')
             real_target = real_target.view_as(real_predictions)
             batch_real_correct = real_predictions.eq(real_target).sum()
             real_correct += batch_real_correct.item()
 
-            prev_fake_logits, fake_logits = discriminator(
-                prev_fake_images,
-                fake_images
-            )
+            fake_logits = discriminator(fake_images)
             fake_predictions = torch.sigmoid(fake_logits).round()
             fake_target = torch.zeros(batch_size, device='cuda')
             fake_target = fake_target.view_as(fake_predictions)
@@ -190,7 +159,7 @@ def test(args, generator, discriminator, test_loader, epoch):
     noise = torch.randn(
         20, args.g_input_channels[0], 1, 1, device='cuda'
     )
-    prev_g_images, g_images = generator(noise)
+    g_images = generator(noise)
     save_image(
         tensor=g_images,
         filename=join(args.img_dir, f'epoch_{epoch}_generated.png'),
@@ -227,18 +196,8 @@ def main():
         type=float
     )
     parser.add_argument(
-        '--image_channels',
-        default=1,
-        type=int)
-    parser.add_argument(
-        '--d_input_channels',
-        default=[1, 64, 128, 256, 512],
-        type=int,
-        nargs='+'
-    )
-    parser.add_argument(
-        '--d_output_channels',
-        default=[64, 128, 256, 512, 1024],
+        '--d_channels',
+        default=[1, 64, 128, 256, 512, 1024],
         type=int,
         nargs='+'
     )
@@ -266,14 +225,8 @@ def main():
         type=int
     )
     parser.add_argument(
-        '--g_input_channels',
-        default=[100, 64*8, 64*4, 64*2, 64],
-        type=int,
-        nargs='+'
-    )
-    parser.add_argument(
-        '--g_output_channels',
-        default=[64*8, 64*4, 64*2, 64, 32],
+        '--g_channels',
+        default=[100, 64*8, 64*4, 64*2, 64, 32],
         type=int,
         nargs='+'
     )

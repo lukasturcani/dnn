@@ -3,38 +3,26 @@ from torch import nn
 
 class Generator(nn.Module):
     def __init__(self,
-                 image_channels,
-                 input_channels,
-                 output_channels,
+                 channels,
                  kernel_sizes,
                  strides,
                  paddings):
 
         super().__init__()
         self.phase = 0
-        self.image_channels = image_channels
-
-        params = zip(
-            input_channels,
-            output_channels,
-            kernel_sizes,
-            strides,
-            paddings
-        )
+        self.image_channels = channels[0]
 
         self.convs = nn.ModuleList()
         self.batch_norms = nn.ModuleList()
         self.activations = nn.ModuleList()
 
-        for i, p in enumerate(params):
-            in_channels, out_channels, kernel_size, stride, padding = p
-
+        for i in range(len(kernel_sizes)):
             conv = nn.ConvTranspose2d(
-                in_channels=in_channels,
-                out_channels=out_channels,
-                kernel_size=kernel_size,
-                stride=stride,
-                padding=padding,
+                in_channels=channels[i],
+                out_channels=channels[i+1],
+                kernel_size=kernel_sizes[i],
+                stride=strides[i],
+                padding=paddings[i],
                 bias=False
             )
             nn.init.kaiming_normal_(
@@ -43,7 +31,7 @@ class Generator(nn.Module):
             )
             self.convs.append(conv)
 
-            batch_norm = nn.BatchNorm2d(num_features=out_channels)
+            batch_norm = nn.BatchNorm2d(num_features=channels[i+1])
             self.batch_norms.append(batch_norm)
 
             self.activations.append(nn.ReLU(inplace=True))
@@ -52,8 +40,6 @@ class Generator(nn.Module):
 
     def grow(self):
         self.phase += 1
-        if self.phase > 1:
-            self.prev_final_conv = self.final_conv
         self.final_conv = nn.Conv2d(
             in_channels=self.convs[self.phase-1].out_channels,
             out_channels=self.image_channels,
@@ -63,23 +49,7 @@ class Generator(nn.Module):
             bias=False
         )
 
-    def prev_forward(self, x):
-        if self.phase == 1:
-            return None
-
-        for i in range(self.phase-1):
-            x = self.convs[i](x)
-
-            if i < len(self.batch_norms):
-                x = self.batch_norms[i](x)
-
-            x = self.activations[i](x)
-
-        x = self.prev_final_conv(x)
-        return self.final_activation(x)
-
     def forward(self, x):
-        prev_x = self.prev_forward(x)
         for i in range(self.phase):
             x = self.convs[i](x)
 
@@ -91,14 +61,12 @@ class Generator(nn.Module):
         x = self.final_conv(x)
         x = self.final_activation(x)
 
-        return prev_x, x
+        return x
 
 
 class Discriminator(nn.Module):
     def __init__(self,
-                 image_channels,
-                 input_channels,
-                 output_channels,
+                 channels,
                  kernel_sizes,
                  strides,
                  paddings,
@@ -107,29 +75,19 @@ class Discriminator(nn.Module):
 
         super().__init__()
         self.phase = 0
-        self.image_channels = image_channels
+        self.image_channels = channels[0]
         self.final_kernel_size = final_kernel_size
-
-        params = zip(
-            input_channels,
-            output_channels,
-            kernel_sizes,
-            strides,
-            paddings
-        )
 
         self.convs = nn.ModuleList()
         self.batch_norms = nn.ModuleList()
         self.activations = nn.ModuleList()
-        for i, p in enumerate(params):
-            in_channels, out_channels, kernel_size, stride, padding = p
-
+        for i in range(len(kernel_sizes)):
             conv = nn.Conv2d(
-                in_channels=in_channels,
-                out_channels=out_channels,
-                kernel_size=kernel_size,
-                stride=stride,
-                padding=padding,
+                in_channels=channels[i],
+                out_channels=channels[i+1],
+                kernel_size=kernel_sizes[i],
+                stride=strides[i],
+                padding=paddings[i],
                 bias=False
             )
             nn.init.kaiming_normal_(
@@ -141,13 +99,11 @@ class Discriminator(nn.Module):
             self.activations.append(nn.LeakyReLU(lrelu_alpha))
 
             if i != 0:
-                batch_norm = nn.BatchNorm2d(num_features=out_channels)
+                batch_norm = nn.BatchNorm2d(num_features=channels[i+1])
                 self.batch_norms.append(batch_norm)
 
     def grow(self):
         self.phase += 1
-        if self.phase > 1:
-            self.prev_final_conv = self.final_conv
         self.final_conv = nn.Conv2d(
             in_channels=self.convs[self.phase-1].out_channels,
             out_channels=self.image_channels,
@@ -157,23 +113,7 @@ class Discriminator(nn.Module):
             bias=False
         )
 
-    def prev_forward(self, x):
-        if self.phase == 1:
-            return None
-
-        for i in range(self.phase-1):
-            x = self.convs[i](x)
-
-            if i != 0:
-                x = self.batch_norms[i-1](x)
-
-            x = self.activations[i](x)
-
-        return self.prev_final_conv(x)
-
-    def forward(self, prev_x, x):
-        prev_x = self.prev_forward(prev_x)
-
+    def forward(self, x):
         for i in range(self.phase):
             x = self.convs[i](x)
 
@@ -182,24 +122,20 @@ class Discriminator(nn.Module):
 
             x = self.activations[i](x)
 
-        return prev_x, self.final_conv(x)
+        return self.final_conv(x)
 
 
 class GrowingGan:
     def __init__(self, args):
         self.generator = Generator(
-            image_channels=args.image_channels,
-            input_channels=args.g_input_channels,
-            output_channels=args.g_output_channels,
+            channels=args.g_channels,
             kernel_sizes=args.g_kernel_sizes,
             strides=args.g_strides,
             paddings=args.g_paddings
         )
 
         self.discriminator = Discriminator(
-            image_channels=args.image_channels,
-            input_channels=args.d_input_channels,
-            output_channels=args.d_output_channels,
+            channels=args.d_channels,
             kernel_sizes=args.d_kernel_sizes,
             strides=args.d_strides,
             paddings=args.d_paddings,
