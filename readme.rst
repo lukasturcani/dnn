@@ -17,7 +17,7 @@ Networks can be modified using command line arguments, for example::
     $ python -m dnn.train_scripts.mnist.simple_cnn --conv_in_channels 1 20 50 --conv_out_channels 20 50 60 --conv_kernel_size 5 5 5 --conv_strides 1 1 1 --conv_paddings 0 0 0 --conv_dilations 1 1 1 --pool_kernel_sizes 2 2 2 --pool_strides 2 2 2 --pool_paddings 0 0 0 --pool-dilations 1 1 1 --train_batch_size 100 --label_smoothing 0.5 --epochs 10
 
 changes the default values for training batch size, label smoothing and
-the number of training epochs and adds a new convoluation layer and pooling
+the number of training epochs and adds a new convolution layer and pooling
 layer vs the default network. Any number of layers can be added / removed
 via the command line in this fashion.
 
@@ -40,7 +40,7 @@ Not all implemented architectures are listed here.
 Progressive Growing GAN (PGGAN)
 -------------------------------
 
-This is a somewhat complex GAN, largely due to a unqiue training
+This is a somewhat complex GAN, largely due to a unique training
 procedure where the resolution of the GAN is slowly increased during
 training.
 
