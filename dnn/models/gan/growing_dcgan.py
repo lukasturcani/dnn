@@ -2,12 +2,36 @@ from torch import nn
 
 
 class Generator(nn.Module):
-    def __init__(self,
-                 channels,
-                 kernel_sizes,
-                 strides,
-                 paddings):
+    """
+    The generator of a growing DCGAN.
 
+    Attributes
+    ----------
+
+
+    """
+
+    def __init__(
+        self,
+        channels,
+        kernel_sizes,
+        strides,
+        paddings
+    ):
+        """
+        Initializes a :class:`.Generator`.
+
+        Parameters
+        ----------
+        channels : :class:``
+
+        kernel_sizes : :class:``
+
+        strides : :class:``
+
+        paddings : :class:``
+
+        """
         super().__init__()
         self.phase = 0
         self.image_channels = channels[-1]
@@ -39,6 +63,9 @@ class Generator(nn.Module):
         self.final_activation = nn.Tanh()
 
     def grow(self):
+        """
+
+        """
         self.phase += 1
         self.final_conv = nn.Conv2d(
             in_channels=self.convs[self.phase-1].out_channels,
@@ -65,13 +92,22 @@ class Generator(nn.Module):
 
 
 class Discriminator(nn.Module):
-    def __init__(self,
-                 channels,
-                 kernel_sizes,
-                 strides,
-                 paddings,
-                 final_kernel_size,
-                 lrelu_alpha):
+    """
+
+    """
+
+    def __init__(
+        self,
+        channels,
+        kernel_sizes,
+        strides,
+        paddings,
+        final_kernel_size,
+        lrelu_alpha
+    ):
+        """
+
+        """
 
         super().__init__()
         self.phase = 0
@@ -103,6 +139,10 @@ class Discriminator(nn.Module):
                 self.batch_norms.append(batch_norm)
 
     def grow(self):
+        """
+
+        """
+
         self.phase += 1
         self.final_conv = nn.Conv2d(
             in_channels=self.convs[self.phase-1].out_channels,
@@ -126,7 +166,15 @@ class Discriminator(nn.Module):
 
 
 class GrowingGan:
+    """
+
+    """
+
     def __init__(self, args):
+        """
+
+        """
+
         self.generator = Generator(
             channels=args.g_channels,
             kernel_sizes=args.g_kernel_sizes,
@@ -144,5 +192,9 @@ class GrowingGan:
         )
 
     def grow(self):
+        """
+
+        """
+        
         self.generator.grow()
         self.discriminator.grow()

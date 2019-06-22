@@ -17,7 +17,7 @@ class Generator(nn.Module):
 
     def __init__(self, fc_layers, lrelu_alpha):
         """
-        Initializes the generator.
+        Initializes a :class:`Generator`.
 
         Parameters
         ----------

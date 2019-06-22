@@ -12,7 +12,7 @@ import os
 import shutil
 
 from dnn.models.autoencoder.autoencoder import (
-    Encoder, Decoder, AutoEncoder
+    Encoder, Decoder, Autoencoder
 )
 from dnn.models.gan.dcgan import Discriminator
 
@@ -202,7 +202,7 @@ class GANTrainer:
 
     def train(self, train_loader):
         """
-        Trains the generator and discriminator for an epochself.
+        Trains the generator and discriminator for an epoch.
 
         Parameters
         ----------
@@ -252,7 +252,7 @@ class GANTrainer:
 
         Parameters
         ----------
-        test_loader : :class:`test_loader`
+        test_loader : :class:`torch.DataLoader`
             A loader which provides the test set.
 
         Returns
@@ -601,7 +601,7 @@ def main():
         strides=args.decoder_strides,
         paddings=args.decoder_paddings
     )
-    autoencoder = AutoEncoder(encoder, decoder)
+    autoencoder = Autoencoder(encoder, decoder)
     autoencoder.to('cuda')
     logging.debug(autoencoder)
 

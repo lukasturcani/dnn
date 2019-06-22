@@ -1,32 +1,50 @@
 from torch import nn
 
 
-class Module(nn.Module):
+class _AutoencoderModule(nn.Module):
     """
     Represents either an encoder or a decoder module.
+
+    This class should not be initialized directly. It servers as a
+    base class for both :class:`.Encoder` and :class:`.Decoder`.
+
+    Attributes
+    ----------
+    conv : :class:`type`
+        An initializer for the final convolutional layer the module
+        uses. This will be need to be defined as a class attribute in a
+        derived class.
+
+    final_activation : :class:`type`
+        An initializer for the final activation function on the module.
+        This will need to be defined as a class attribute in a derived
+        class.
+
+    layers : :class:`torch.Sequential`
+        The layers of the module.
 
     """
 
     def __init__(self, channels, kernel_sizes, strides, paddings):
         """
-        Initializes a encoder or decoder module.
+        Initializes an :class:`._AutoencoderModule`.
 
         Parameters
         ----------
         channels : :class:`list` of :class:`int`
             The number of channels in each layer. This includes
-            the input and output layer. As a result this list will be
-            longer by 1 than `kernel_sizes`, `strides` or
+            the input and output layer. As a result this :class:`list`
+            will be longer by 1 than `kernel_sizes`, `strides` or
             `paddings`.
 
         kernel_sizes : :class:`list` of :class:`int`
             The kernel size of each convolutional layer.
 
         strides : :class:`list` of :class:`int`
-            The stride of each convoluational layer.
+            The stride of each convolutional layer.
 
         paddings : :class:`list` of :class:`int`
-            The padding of each convoluational layer.
+            The padding of each convolutional layer.
 
         """
 
@@ -67,23 +85,51 @@ class Module(nn.Module):
         return self.layers(x)
 
 
-class Encoder(Module):
+class Encoder(_AutoencoderModule):
+    """
+    Represents an encoder in a :class:`.Autoencoder`.
+
+    """
+
     conv = nn.Conv2d
     final_activation = nn.ReLU(inplace=True)
 
 
-class Decoder(Module):
+class Decoder(_AutoencoderModule):
+    """
+    Represents a decoder in a :class:`.Autoencoder`.
+
+    """
+
     conv = nn.ConvTranspose2d
     final_activation = nn.Tanh()
 
 
-class AutoEncoder(nn.Module):
+class Autoencoder(nn.Module):
     """
+    Represents an autoencoder network.
+
+    Attributes
+    ----------
+    encoder : :class:`.Encoder`
+        The :class:`.Encoder` network.
+
+    decoder : :class:`.Decoder`
+        The :class:`.Decoder` network.
 
     """
 
     def __init__(self, encoder, decoder):
         """
+        Initializes a :class:`.Autoencoder`.
+
+        Parameters
+        ----------
+        encoder : :class:`.Encoder`
+            The :class:`.Encoder` network.
+
+        decoder : :class:`.Decoder`
+            The :class:`.Decoder` network.
 
         """
 

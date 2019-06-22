@@ -2,11 +2,13 @@ from torch import nn
 import torch.nn.functional as F
 
 
-def padding(size_out,
-            size_in,
-            kernel_size,
-            stride,
-            dilation):
+def padding(
+    size_out,
+    size_in,
+    kernel_size,
+    stride,
+    dilation
+):
     """
     Returns desired padding value for a convolutional layer.
 
@@ -80,11 +82,17 @@ class Generator(nn.Module):
 
     """
 
-    def __init__(self,
-                 init_img_size,
-                 img_channels,
-                 latent_space_channels,
-                 lrelu_alpha):
+    def __init__(
+        self,
+        init_img_size,
+        img_channels,
+        latent_space_channels,
+        lrelu_alpha
+    ):
+        """
+
+        """
+
         super().__init__()
         self.fading = False
         self.fade_alpha = 0
@@ -208,10 +216,12 @@ class Discriminator(nn.Module):
 
     """
 
-    def __init__(self,
-                 init_img_size,
-                 img_channels,
-                 lrelu_alpha):
+    def __init__(
+        self,
+        init_img_size,
+        img_channels,
+        lrelu_alpha
+    ):
         super().__init__()
         self.fading = False
         self.fade_alpha = 0

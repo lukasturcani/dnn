@@ -14,6 +14,11 @@ logger = logging.getLogger(__name__)
 
 
 def train(args, model, train_loader, optimizer, epoch):
+    """
+
+
+    """
+
     model.train()
     for batch_id, (data, target) in enumerate(train_loader):
         data, target = data.to('cuda'), target.to('cuda')
@@ -35,6 +40,10 @@ def train(args, model, train_loader, optimizer, epoch):
 
 
 def test(model, test_loader):
+    """
+
+    """
+
     model.eval()
     test_loss = 0
     correct = 0

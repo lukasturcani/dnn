@@ -14,15 +14,20 @@ from dnn.models.gan.growing_dcgan import GrowingGan
 logger = logging.getLogger(__name__)
 
 
-def train(args,
-          generator,
-          discriminator,
-          g_optimizer,
-          d_optimizer,
-          train_loader,
-          epoch,
-          d_steps,
-          fade_alpha):
+def train(
+    args,
+    generator,
+    discriminator,
+    g_optimizer,
+    d_optimizer,
+    train_loader,
+    epoch,
+    d_steps,
+    fade_alpha
+):
+    """
+
+    """
 
     generator.train()
     discriminator.train()
@@ -107,6 +112,10 @@ def train(args,
 
 
 def test(args, generator, discriminator, test_loader, epoch):
+    """
+
+    """
+
     generator.eval()
     discriminator.eval()
     correct = fake_correct = real_correct = 0

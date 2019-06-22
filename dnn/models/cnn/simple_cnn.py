@@ -12,31 +12,34 @@ class SimpleCNN(nn.Module):
     Attributes
     ----------
     conv_layers : :class:`nn.Sequential`
-        The convoluational layers of the network.
+        The convolutional layers of the network.
 
     fc_layers : :class:`nn.Sequential`
         The fully connected layers of the network.
 
     fc_input_size : :class:`int`
-        The number of features to the first fully connected layer.
+        The number of features input to the first fully connected
+        layer.
 
     """
 
-    def __init__(self,
-                 channels,
-                 conv_kernel_sizes,
-                 conv_strides,
-                 conv_paddings,
-                 conv_dilations,
-                 pool_kernel_sizes,
-                 pool_strides,
-                 pool_paddings,
-                 pool_dilations,
-                 fc_input_size,
-                 fcs,
-                 final_activation):
+    def __init__(
+        self,
+        channels,
+        conv_kernel_sizes,
+        conv_strides,
+        conv_paddings,
+        conv_dilations,
+        pool_kernel_sizes,
+        pool_strides,
+        pool_paddings,
+        pool_dilations,
+        fc_input_size,
+        fcs,
+        final_activation
+    ):
         """
-        Initialize a :class:`SimpleCNN`.
+        Initializes a :class:`SimpleCNN`.
 
         Parameters
         ----------
@@ -81,14 +84,16 @@ class SimpleCNN(nn.Module):
 
         """
 
-        assert (len(channels) - 1 == len(conv_kernel_sizes) and
-                len(conv_kernel_sizes) == len(conv_strides) and
-                len(conv_strides) == len(conv_paddings) and
-                len(conv_paddings) == len(conv_dilations) and
-                len(conv_dilations) == len(pool_kernel_sizes) and
-                len(pool_kernel_sizes) == len(pool_strides) and
-                len(pool_strides) == len(pool_paddings) and
-                len(pool_paddings) == len(pool_dilations))
+        assert (
+            len(channels) - 1 == len(conv_kernel_sizes) and
+            len(conv_kernel_sizes) == len(conv_strides) and
+            len(conv_strides) == len(conv_paddings) and
+            len(conv_paddings) == len(conv_dilations) and
+            len(conv_dilations) == len(pool_kernel_sizes) and
+            len(pool_kernel_sizes) == len(pool_strides) and
+            len(pool_strides) == len(pool_paddings) and
+            len(pool_paddings) == len(pool_dilations)
+        )
 
         super().__init__()
 

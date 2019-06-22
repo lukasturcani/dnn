@@ -8,34 +8,36 @@ class Generator(nn.Module):
     Attributes
     ----------
     layers : :class:`torch.Sequential`
-        All the layers of the newtork.
+        All the layers of the network.
 
     """
 
-    def __init__(self,
-                 channels,
-                 kernel_sizes,
-                 strides,
-                 paddings):
+    def __init__(
+        self,
+        channels,
+        kernel_sizes,
+        strides,
+        paddings
+    ):
         """
-        Initializes the generator.
+        Initializes a :class:`Generator`.
 
         Parameters
         ----------
         channels : :class:`list` of :class:`int`
             The number of channels in each layer. This includes
-            the input and output layer. As a result this list will be
-            longer by 1 than `kernel_sizes`, `strides` or
+            the input and output layer. As a result this :class:`list`
+            will be longer by 1 than `kernel_sizes`, `strides` or
             `paddings`.
 
         kernel_sizes : :class:`list` of :class:`int`
             The kernel size of each convolutional layer.
 
         strides : :class:`list` of :class:`int`
-            The stride of each convoluational layer.
+            The stride of each convolutional layer.
 
         paddings : :class:`list` of :class:`int`
-            The padding of each convoluational layer.
+            The padding of each convolutional layer.
 
         """
 
@@ -88,31 +90,33 @@ class Discriminator(nn.Module):
 
     """
 
-    def __init__(self,
-                 channels,
-                 kernel_sizes,
-                 strides,
-                 paddings,
-                 lrelu_alpha):
+    def __init__(
+        self,
+        channels,
+        kernel_sizes,
+        strides,
+        paddings,
+        lrelu_alpha
+    ):
         """
-        Initializes the discriminator.
+        Initializes a :class:`Discriminator`.
 
         Parameters
         ----------
         channels : :class:`list` of :class:`int`
             The number of channels in each layer. This includes
-            the input and output layer. As a result this list will be
-            longer by 1 than `kernel_sizes`, `strides` or
+            the input and output layer. As a result this :class:`list`
+            will be longer by 1 than `kernel_sizes`, `strides` or
             `paddings`.
 
         kernel_sizes : :class:`list` of :class:`int`
             The kernel size of each convolutional layer.
 
         strides : :class:`list` of :class:`int`
-            The stride of each convoluational layer.
+            The stride of each convolutional layer.
 
         paddings : :class:`list` of :class:`int`
-            The padding of each convoluational layer.
+            The padding of each convolutional layer.
 
         """
 
