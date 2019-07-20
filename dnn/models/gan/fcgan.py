@@ -10,14 +10,14 @@ class Generator(nn.Module):
 
     Attributes
     ----------
-    layers : :class:`torch.Sequential`
+    _layers : :class:`torch.Sequential`
         All the layers of the network.
 
     """
 
     def __init__(self, fc_layers, lrelu_alpha):
         """
-        Initializes a :class:`Generator`.
+        Initialize a :class:`Generator`.
 
         Parameters
         ----------
@@ -51,10 +51,10 @@ class Generator(nn.Module):
                 activation = nn.Tanh()
             layers.append(activation)
 
-        self.layers = nn.Sequential(*layers)
+        self._layers = nn.Sequential(*layers)
 
     def forward(self, x):
-        return self.layers(x)
+        return self._layers(x)
 
 
 class Discriminator(nn.Module):
@@ -66,14 +66,14 @@ class Discriminator(nn.Module):
 
     Attributes
     ----------
-    layers : :class:`torch.Sequential`
+    _layers : :class:`torch.Sequential`
         All the layers of the network.
 
     """
 
     def __init__(self, fc_layers, lrelu_alpha):
         """
-        Initializes the discriminator.
+        Initialize a :class:`Discriminator`.
 
         Parameters
         ----------
@@ -105,7 +105,7 @@ class Discriminator(nn.Module):
                 activation = nn.LeakyReLU(lrelu_alpha)
                 layers.append(activation)
 
-        self.layers = nn.Sequential(*layers)
+        self._layers = nn.Sequential(*layers)
 
     def forward(self, x):
-        return self.layers(x)
+        return self._layers(x)

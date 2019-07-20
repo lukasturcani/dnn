@@ -7,8 +7,12 @@ class Generator(nn.Module):
 
     Attributes
     ----------
-    layers : :class:`torch.Sequential`
+    _layers : :class:`torch.Sequential`
         All the layers of the network.
+
+    Methods
+    -------
+    :meth:`forward`
 
     """
 
@@ -20,7 +24,7 @@ class Generator(nn.Module):
         paddings
     ):
         """
-        Initializes a :class:`Generator`.
+        Initialize a :class:`Generator`.
 
         Parameters
         ----------
@@ -73,10 +77,10 @@ class Generator(nn.Module):
                 activation = nn.Tanh()
             layers.append(activation)
 
-        self.layers = nn.Sequential(*layers)
+        self._layers = nn.Sequential(*layers)
 
     def forward(self, x):
-        return self.layers(x)
+        return self._layers(x)
 
 
 class Discriminator(nn.Module):
@@ -85,7 +89,7 @@ class Discriminator(nn.Module):
 
     Attributes
     ----------
-    layers : :class:`torch.Sequential`
+    _layers : :class:`torch.Sequential`
         All the layers of the newtork.
 
     """
@@ -99,7 +103,7 @@ class Discriminator(nn.Module):
         lrelu_alpha
     ):
         """
-        Initializes a :class:`Discriminator`.
+        Initialize a :class:`Discriminator`.
 
         Parameters
         ----------
@@ -150,7 +154,7 @@ class Discriminator(nn.Module):
                 batch_norm = nn.BatchNorm2d(num_features=out_channels)
                 layers.append(batch_norm)
 
-        self.layers = nn.Sequential(*layers)
+        self._layers = nn.Sequential(*layers)
 
     def forward(self, x):
-        return self.layers(x)
+        return self._layers(x)
