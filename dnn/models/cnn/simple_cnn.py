@@ -11,15 +11,19 @@ class SimpleCNN(nn.Module):
 
     Attributes
     ----------
-    conv_layers : :class:`nn.Sequential`
+    _conv_layers : :class:`nn.Sequential`
         The convolutional layers of the network.
 
-    fc_layers : :class:`nn.Sequential`
+    _fc_layers : :class:`nn.Sequential`
         The fully connected layers of the network.
 
-    fc_input_size : :class:`int`
+    _fc_input_size : :class:`int`
         The number of features input to the first fully connected
         layer.
+
+    Methods
+    -------
+    :meth:`forward`
 
     """
 
@@ -39,7 +43,7 @@ class SimpleCNN(nn.Module):
         final_activation
     ):
         """
-        Initializes a :class:`SimpleCNN`.
+        Initialize a :class:`SimpleCNN`.
 
         Parameters
         ----------
@@ -118,10 +122,10 @@ class SimpleCNN(nn.Module):
             )
             conv_layers.append(pool)
 
-        self.conv_layers = nn.Sequential(*conv_layers)
+        self._conv_layers = nn.Sequential(*conv_layers)
 
         fc_layers = []
-        self.fc_input_size = in_features = fc_input_size
+        self._fc_input_size = in_features = fc_input_size
         for out_features in fcs:
             fc_layer = nn.Linear(
                 in_features=in_features,
@@ -137,9 +141,9 @@ class SimpleCNN(nn.Module):
 
             in_features = out_features
 
-        self.fc_layers = nn.Sequential(*fc_layers)
+        self._fc_layers = nn.Sequential(*fc_layers)
 
     def forward(self, x):
-        x = self.conv_layers(x)
-        x = x.view(-1, self.fc_input_size)
-        return self.fc_layers(x)
+        x = self._conv_layers(x)
+        x = x.view(-1, self._fc_input_size)
+        return self._fc_layers(x)

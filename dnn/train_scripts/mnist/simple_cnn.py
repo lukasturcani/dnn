@@ -15,7 +15,28 @@ logger = logging.getLogger(__name__)
 
 def train(args, model, train_loader, optimizer, epoch):
     """
+    Train the `model` for an epoch.
 
+    Parameters
+    ----------
+    args : :class:`Namespace`
+        Holds training hyperparameters.
+
+    model : :class:`.SimpleCNN`
+        The model to be trained.
+
+    train_loader : :class:`torch.DataLoader`
+        Loads the training data.
+
+    optimizer : :class:`torch.Optimizer`
+        Carries out the optimization.
+
+    epoch : :class:`int`
+        The current epoch.
+
+    Returns
+    -------
+    None : :class:`NoneType`
 
     """
 
@@ -41,6 +62,19 @@ def train(args, model, train_loader, optimizer, epoch):
 
 def test(model, test_loader):
     """
+    Test the `model`.
+
+    Parameters
+    ----------
+    model : :class:`.SimpleCNN`
+        The model to be tested.
+
+    test_loader : :class:`torch.DataLoader`
+        Provides the test data set.
+
+    Returns
+    -------
+    None : :class:`NoneType`
 
     """
 
