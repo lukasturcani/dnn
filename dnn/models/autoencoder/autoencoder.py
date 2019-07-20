@@ -10,30 +10,34 @@ class _AutoencoderModule(nn.Module):
 
     Attributes
     ----------
-    conv : :class:`type`
+    _conv : :class:`type`
         An initializer for the final convolutional layer the module
         uses. This will be need to be defined as a class attribute in a
         derived class.
 
-    final_activation : :class:`type`
+    _final_activation : :class:`type`
         An initializer for the final activation function on the module.
         This will need to be defined as a class attribute in a derived
         class.
 
-    layers : :class:`torch.Sequential`
+    _layers : :class:`torch.Sequential`
         The layers of the module.
+
+    Methods
+    -------
+    :meth:`forward`
 
     """
 
     def __init__(self, channels, kernel_sizes, strides, paddings):
         """
-        Initializes an :class:`._AutoencoderModule`.
+        Initialize an :class:`._AutoencoderModule`.
 
         Parameters
         ----------
         channels : :class:`list` of :class:`int`
             The number of channels in each layer. This includes
-            the input and output layer. As a result this :class:`list`
+            the input and output layer. As a result, this :class:`list`
             will be longer by 1 than `kernel_sizes`, `strides` or
             `paddings`.
 
@@ -60,7 +64,7 @@ class _AutoencoderModule(nn.Module):
             stride = strides[i]
             padding = paddings[i]
 
-            conv = self.conv(
+            conv = self._conv(
                 in_channels=in_channels,
                 out_channels=out_channels,
                 kernel_size=kernel_size,
@@ -75,14 +79,14 @@ class _AutoencoderModule(nn.Module):
                 layers.append(batch_norm)
                 activation = nn.ReLU(inplace=True)
             else:
-                activation = self.final_activation
+                activation = self._final_activation
 
             layers.append(activation)
 
-        self.layers = nn.Sequential(*layers)
+        self._layers = nn.Sequential(*layers)
 
     def forward(self, x):
-        return self.layers(x)
+        return self._layers(x)
 
 
 class Encoder(_AutoencoderModule):
@@ -91,8 +95,8 @@ class Encoder(_AutoencoderModule):
 
     """
 
-    conv = nn.Conv2d
-    final_activation = nn.ReLU(inplace=True)
+    _conv = nn.Conv2d
+    _final_activation = nn.ReLU(inplace=True)
 
 
 class Decoder(_AutoencoderModule):
@@ -101,8 +105,8 @@ class Decoder(_AutoencoderModule):
 
     """
 
-    conv = nn.ConvTranspose2d
-    final_activation = nn.Tanh()
+    _conv = nn.ConvTranspose2d
+    _final_activation = nn.Tanh()
 
 
 class Autoencoder(nn.Module):
@@ -111,17 +115,24 @@ class Autoencoder(nn.Module):
 
     Attributes
     ----------
-    encoder : :class:`.Encoder`
+    _encoder : :class:`.Encoder`
         The :class:`.Encoder` network.
 
-    decoder : :class:`.Decoder`
+    _decoder : :class:`.Decoder`
         The :class:`.Decoder` network.
+
+    _autoencoder : :class:`torch.Sequential`
+        The layers of the autoencoder network.
+
+    Methds
+    ------
+    :meth:`forward`
 
     """
 
     def __init__(self, encoder, decoder):
         """
-        Initializes a :class:`.Autoencoder`.
+        Initialize a :class:`.Autoencoder`.
 
         Parameters
         ----------
@@ -134,9 +145,9 @@ class Autoencoder(nn.Module):
         """
 
         super().__init__()
-        self.encoder = encoder
-        self.decoder = decoder
-        self.autoencoder = nn.Sequential(encoder, decoder)
+        self._encoder = encoder
+        self._decoder = decoder
+        self._autoencoder = nn.Sequential(encoder, decoder)
 
     def forward(self, x):
-        return self.autoencoder(x)
+        return self._autoencoder(x)

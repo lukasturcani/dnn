@@ -38,36 +38,53 @@ class GANTrainer:
 
     Attributes
     ----------
-    generator : :class:`torch.Module`
+    _generator : :class:`torch.Module`
         The generator network.
 
-    discriminator : :class:`torch.Module`
+    _discriminator : :class:`torch.Module`
         The discriminator network.
 
-    args : :class:`Namespace`
+    _args : :class:`Namespace`
         A namespace holding various hyperparameters the trainer needs.
 
-    criterion : :class:`torch.Module`
+    _criterion : :class:`torch.Module`
         The loss function.
 
-    epochs : :class:`int`
+    _epochs : :class:`int`
         The total number of epochs the trainer has gone through.
 
-    g_optimizer : :class:`torch.Optimizer`
+    _g_optimizer : :class:`torch.Optimizer`
         The generator's optimizer.
 
-    d_optimizer : :class:`torch.Optimizer`
+    _d_optimizer : :class:`torch.Optimizer`
         The discriminator's optimizer.
 
-    img_shape : :class:`list` of :class:`int`
+    _img_shape : :class:`list` of :class:`int`
         The shape of the images the generator outputs.
         ``[channels, height, width]``.
+
+    _m1 : :class:`torch.Tensor`
+        A mask for images, used for setting values to 0.
+
+    _m2 : :class:`torch.Tensor`
+        A mask for images, used for setting values to -1.
+
+    _d_loss : :class:`float`
+        The loss of the discriminator.
+
+    _g_loss : :class:`float`
+        The loss of the generator.
+
+    Methods
+    -------
+    :meth:`train`
+    :meth:`eval`
 
     """
 
     def __init__(self, generator, discriminator, args, img_shape):
         """
-        Initializes the trainer.
+        Initialize a :class:`GANTrainer`.
 
         Parameters
         ----------
@@ -87,27 +104,27 @@ class GANTrainer:
 
         """
 
-        self.generator = generator
-        self.discriminator = discriminator
-        self.args = args
-        self.img_shape = img_shape
-        self.criterion = nn.BCEWithLogitsLoss()
-        self.epochs = 0
+        self._generator = generator
+        self._discriminator = discriminator
+        self._args = args
+        self._img_shape = img_shape
+        self._criterion = nn.BCEWithLogitsLoss()
+        self._epochs = 0
 
-        self.g_optimizer = optim.Adam(
+        self._g_optimizer = optim.Adam(
             params=generator.parameters(),
             lr=args.learning_rate,
             betas=(args.beta1, args.beta2)
         )
-        self.d_optimizer = optim.Adam(
+        self._d_optimizer = optim.Adam(
             params=discriminator.parameters(),
             lr=args.learning_rate,
             betas=(args.beta1, args.beta2)
         )
 
-    def d_train_step(self, batch_size, real_images):
+    def _take_d_train_step(self, batch_size, real_images):
         """
-        Carries out a single training step on the discriminator.
+        Take a single training step on the discriminator.
 
         Parameters
         ----------
@@ -123,45 +140,45 @@ class GANTrainer:
 
         """
 
-        masked_images = real_images*self.m1 - self.m2
-        inpainted_images = self.generator(masked_images)
+        masked_images = real_images*self._m1 - self._m2
+        inpainted_images = self._generator(masked_images)
 
         # Reset accumulated discriminator gradient.
-        self.d_optimizer.zero_grad()
+        self._d_optimizer.zero_grad()
 
         # Get logits.
-        real_logits = self.discriminator(real_images)
-        inpainted_logits = self.discriminator(inpainted_images)
+        real_logits = self._discriminator(real_images)
+        inpainted_logits = self._discriminator(inpainted_images)
 
         # Get target labels for real images.
         real_target = torch.ones(batch_size, device='cuda')
-        real_target -= self.args.label_smoothing
+        real_target -= self._args.label_smoothing
         real_target = real_target.view_as(real_logits)
 
         # Calculate loss on real iamges.
-        d_real_loss = self.criterion(real_logits, real_target)
+        d_real_loss = self._criterion(real_logits, real_target)
 
         # Get target labels for inpainted images.
         inpainted_target = torch.zeros(batch_size, device='cuda')
         inpainted_target = inpainted_target.view_as(inpainted_logits)
 
         # Calculate loss on inpainted images.
-        d_inpainted_loss = self.criterion(
+        d_inpainted_loss = self._criterion(
             inpainted_logits,
             inpainted_target
         )
 
         # Calculate total loss.
         d_loss = d_real_loss + d_inpainted_loss
-        self.d_loss = d_loss.item()
+        self._d_loss = d_loss.item()
 
         # Backprop.
         d_loss.backward()
-        self.d_optimizer.step()
+        self._d_optimizer.step()
 
-    def g_train_step(self, batch_size, real_images):
+    def _take_g_train_step(self, batch_size, real_images):
         """
-        Carries out a single training step on the generator.
+        Take a single training step on the generator.
 
         Parameters
         ----------
@@ -178,31 +195,31 @@ class GANTrainer:
         """
 
         # Reset accumulated generator gradient.
-        self.g_optimizer.zero_grad()
+        self._g_optimizer.zero_grad()
 
         # Create inpainted images.
-        masked_images = real_images*self.m1 - self.m2
-        inpainted_images = self.generator(masked_images)
+        masked_images = real_images*self._m1 - self._m2
+        inpainted_images = self._generator(masked_images)
 
         # Get logits.
-        inpainted_logits = self.discriminator(inpainted_images)
+        inpainted_logits = self._discriminator(inpainted_images)
 
         # Get target labels for inpainted images.
         inpainted_target = torch.ones(batch_size, device='cuda')
         inpainted_target = inpainted_target.view_as(inpainted_logits)
 
         # Calculate generator loss.
-        g_loss = self.criterion(inpainted_logits, inpainted_target)
+        g_loss = self._criterion(inpainted_logits, inpainted_target)
         g_loss += F.mse_loss(inpainted_images, real_images)
-        self.g_loss = g_loss.item()
+        self._g_loss = g_loss.item()
 
         # Backprop.
         g_loss.backward()
-        self.g_optimizer.step()
+        self._g_optimizer.step()
 
     def train(self, train_loader):
         """
-        Trains the generator and discriminator for an epoch.
+        Train the generator and discriminator for an epoch.
 
         Parameters
         ----------
@@ -215,40 +232,40 @@ class GANTrainer:
 
         """
 
-        self.epochs += 1
-        self.generator.train()
-        self.discriminator.train()
+        self._epochs += 1
+        self._generator.train()
+        self._discriminator.train()
 
-        self.m1, self.m2 = masks(train_loader)
-        self.d_loss = self.g_loss = 0
+        self._m1, self._m2 = masks(train_loader)
+        self._d_loss = self._g_loss = 0
         for batch_id, (real_images, _) in enumerate(train_loader):
             batch_size = real_images.size()[0]
             real_images = real_images.to('cuda')
 
             if batch_id % 2 == 0:
-                self.d_train_step(batch_size, real_images)
+                self._take_d_train_step(batch_size, real_images)
             else:
-                self.g_train_step(batch_size, real_images)
+                self._take_g_train_step(batch_size, real_images)
 
-            if batch_id % self.args.log_interval == 0:
+            if batch_id % self._args.log_interval == 0:
                 msg = (
                     'Train Epoch: {} [{}/{} ({:.0f}%)]\t'
                     'Discriminator Loss: {:.6f}\t'
                     'Generator Loss: {:.6f}'
                 )
                 msg = msg.format(
-                    self.epochs,
+                    self._epochs,
                     batch_id * len(real_images),
                     len(train_loader.dataset),
                     100. * batch_id / len(train_loader),
-                    self.d_loss,
-                    self.g_loss
+                    self._d_loss,
+                    self._g_loss
                 )
                 logger.info(msg)
 
     def eval(self, test_loader):
         """
-        Evaluates the GAN performance on a test set.
+        Evaluate the GAN performance on a test set.
 
         Parameters
         ----------
@@ -261,13 +278,14 @@ class GANTrainer:
 
         """
 
-        self.generator.eval()
-        self.discriminator.eval()
+        self._generator.eval()
+        self._discriminator.eval()
 
         # Total correct prediction counts.
         correct = inpainted_correct = real_correct = 0
 
         m1, m2 = masks(test_loader)
+
         with torch.no_grad():
             for real_images, _ in test_loader:
                 real_images = real_images.to('cuda')
@@ -277,10 +295,10 @@ class GANTrainer:
                 batch_inpainted_correct = batch_real_correct = 0
 
                 # Generate inpainted images.
-                inpainted_images = self.generator(real_images*m1 - m2)
+                inpainted_images = self._generator(real_images*m1 - m2)
 
                 # Get predictions on real images.
-                real_logits = self.discriminator(real_images)
+                real_logits = self._discriminator(real_images)
                 real_predictions = torch.sigmoid(real_logits).round()
 
                 # Get target labels for real images.
@@ -294,7 +312,9 @@ class GANTrainer:
                 real_correct += batch_real_correct.item()
 
                 # Get predictions on inpainted images.
-                inpainted_logits = self.discriminator(inpainted_images)
+                inpainted_logits = (
+                    self._discriminator(inpainted_images)
+                )
                 inpainted_predictions = (
                     torch.sigmoid(inpainted_logits).round()
                 )
@@ -334,9 +354,9 @@ class GANTrainer:
         real_images, _ = next(iter(test_loader))
         real_images = real_images.to('cuda')
         filename = os.path.join(
-            self.args.output_dir,
+            self._args.output_dir,
             'images',
-            f'epoch_{self.epochs}_original.jpg'
+            f'epoch_{self._epochs}_original.jpg'
         )
         save_image(
             tensor=real_images,
@@ -348,9 +368,9 @@ class GANTrainer:
 
         masked_images = m1*real_images - m2
         filename = os.path.join(
-            self.args.output_dir,
+            self._args.output_dir,
             'images',
-            f'epoch_{self.epochs}_masked.jpg'
+            f'epoch_{self._epochs}_masked.jpg'
         )
         save_image(
             tensor=masked_images,
@@ -360,9 +380,9 @@ class GANTrainer:
             nrow=10
         )
 
-        inpainted_images = self.generator(masked_images)
+        inpainted_images = self._generator(masked_images)
         filename = os.path.join(
-            self.args.output_dir,
+            self._args.output_dir,
             'images',
             f'epoch_{self.epochs}_inpainted.jpg'
         )
